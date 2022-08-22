@@ -38,7 +38,7 @@ classdef BinaryMaskTarget < Target
                    TCGAUtils.GetIDsFromTileFilepaths(sTileFilepath);
            end
            
-           c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs,'vsFieldsToIgnore','bFromTCGA');
+           c1xNameValueArgs = MyGeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs,'vsFieldsToIgnore','bFromTCGA');
            obj = obj@Target(sTargetName, sTargetSource, c1xNameValueArgs{:});
            
         end
@@ -48,7 +48,7 @@ classdef BinaryMaskTarget < Target
             m3bMask = imread(obj.GetMaskPath());
             dPercentCoverage = (sum(m3bMask(:)))/numel(m3bMask);
 
-            c1xObjInfo = GeneralUtils.ConvertObjToCellArray(obj, 'vsPropertiesToIgnore',...
+            c1xObjInfo = MyGeneralUtils.ConvertObjToCellArray(obj, 'vsPropertiesToIgnore',...
                 ["sTargetName", "sTargetSource","sTrueClassName","sFalseClassName"]);
             oPercentCoverageTarget = ScalarTarget(dPercentCoverage, obj.sTargetName, obj.sTargetSource, c1xObjInfo{:});                        
         end
@@ -90,40 +90,39 @@ classdef BinaryMaskTarget < Target
            % Maks vector of tiles
            c1oTiles = cell(length(stMasksInDir), 1);
            
-           dtStartTime = datetime('now');
-           dtNextAllowableTime = dtStartTime;
-           
            for iMask = 1:length(stMasksInDir)
                
                % Make target
                chMaskFilepath = sTileAndMaskDir + stMasksInDir(iMask).name;
-               c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs, 'vsFieldsToIgnore',"sPartialFileDirectory");
+               c1xNameValueArgs = MyGeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs, 'vsFieldsToIgnore',"sPartialFileDirectory");
                oMask = BinaryMaskTarget(chMaskFilepath, sTargetName, c1xNameValueArgs{:});
 
                % Make TileWithTarget object, passing in target
                chTileFilepath = strrep(chMaskFilepath, TileImagesUtils.sMaskCode, '');
+               try
                if isfield(NameValueArgs,'bFromTCGA') && NameValueArgs.bFromTCGA
-               c1oTiles{iMask} = TileWithTarget(chTileFilepath, oMask, 'bFromTCGA', NameValueArgs.bFromTCGA);
+                   c1oTiles{iMask} = TileWithTarget(chTileFilepath, oMask, 'bFromTCGA', NameValueArgs.bFromTCGA);
                else
                    c1oTiles{iMask} = TileWithTarget(chTileFilepath, oMask);
                end
-                   
-               % Estimate remaining time and report ite every 10min
-               dtCurrentTime = datetime('now');
-               
-               % Adding "next alloable time" avoids the message being
-               % output for every loop run in a minute
-               if (rem(dtCurrentTime.Minute, 10) == 0) && (dtCurrentTime >= dtNextAllowableTime)
-                   dtAverageTimePerMask = (dtCurrentTime - dtStartTime)/iMask;
-                   dtRemainingTime = dtAverageTimePerMask*(length(stMasksInDir)-iMask);
-                   disp("Time left is: " + string(dtRemainingTime) + " (HH:MM:SS)")
-                   if ~isempty(NameValueArgs.sPartialFileDirectory)
-                       save(NameValueArgs.sPartialFileDirectory + "\Workspace_PartialTiles.mat")
+               catch oMessage
+                   if strcmp(oMessage.identifier, 'MATLAB:validators:mustBeFile')
+                       warning("Tile not found for mask, so object not created for this mask" + oMask.GetMaskPath())
+                       continue
+                   else
+                       rethrow(oMessage)
                    end
-                   dtNextAllowableTime = dtCurrentTime + minutes(1);
                end
+               
+               % Save every 10,000 masks if a partial progress directory was given
+               if rem(iMask, 10000) == 0 && ~isempty(NameValueArgs.sPartialFileDirectory)
+                   save(NameValueArgs.sPartialFileDirectory + "\Workspace_PartialTiles.mat")
+               end               
+               
            end
-           
+           % Remove empty cell (this happens if a mask was skipped because
+           % its corresponding tile was not found)
+           c1oTiles(cellfun(@isempty,c1oTiles)) = [];
            voTiles = CellArrayUtils.CellArrayOfObjects2MatrixOfObjects(c1oTiles);
        end
        

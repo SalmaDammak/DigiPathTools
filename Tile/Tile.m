@@ -1,4 +1,14 @@
 classdef Tile
+    %Tile
+    %
+    % Tile is a class representing a sub-image of a whole slide image
+    % (WSI) called a tile (or patch). It allows for organizing meta
+    % information about the tile and how it relates to the WSI, plus it
+    % allows for methods to manage a collection of tiles in the form of a
+    % vector of tiles.
+    
+    % Created by: Salma Dammak
+    % Created: Aug 08, 2022
     
     % *********************************************************************
     % *                            PROPERTIES                             *
@@ -10,7 +20,6 @@ classdef Tile
         sPatientID
         sSlideID
         sTileID
-        %sCentreName
     end
     
     % IMAGE PROPERTIES
@@ -24,8 +33,6 @@ classdef Tile
     
     % SIZE
     properties (SetAccess = immutable, GetAccess = public)
-        %dSourceSlideResolution_MicronsPerPixel
-        %dTileResolution_MicronsPerPixel
         dResizeFactor
         dWidth_Pixels
         dHeight_Pixels
@@ -37,10 +44,6 @@ classdef Tile
         dTileUpperRightCornerLocationInSourceSlideY_Pixels
     end
     
-    properties (Constant)
-        %sSlideResolutionListFilepath = '';
-        %sCenterNameAndCodeFilepath = '';
-    end
     % *********************************************************************
     % *                        SCALAR TILE METHODS                        *
     % *********************************************************************
@@ -65,6 +68,7 @@ classdef Tile
             obj.sFilename = vsFileparts(end);
             
             if isfield(NameValueArgs,'bFromTCGA') && NameValueArgs.bFromTCGA
+                
                 % Get the info from the filename
                 [obj.sCentreID, obj.sPatientID, obj.sSlideID, obj.sTileID] = TCGAUtils.GetIDsFromTileFilepaths(sTileFilepath);
             else
@@ -83,52 +87,45 @@ classdef Tile
                 obj.sStain = NameValueArgs.sStain;
             end
             
-            % TILE LOCATION AND SIZE
+            % LOCATION AND SIZE
             [dXOrigin, dYOrigin, dWidth, dHeight, dResizeFactorValue] = QuPathUtils.GetTileCoordinatesFromName(sTileFilepath);
             obj.dTileUpperRightCornerLocationInSourceSlideX_Pixels = dXOrigin;
             obj.dTileUpperRightCornerLocationInSourceSlideY_Pixels = dYOrigin;
             obj.dWidth_Pixels =  dWidth;
             obj.dHeight_Pixels = dHeight;
             obj.dResizeFactor = dResizeFactorValue;
-            
-            %obj.dTileResolution_MicronsPerPixel = dSourceSlideResolution_MicronsPerPixel/dResizeFactor;
-            %dSourceSlideResolution_MicronsPerPixel = tile.GetSourceSlideResolution(obj.sSlideID); % TO DO
         end
+        
     end
     
     % GETTERS
     methods
-        function sCentreID = GetCentreID(obj)
-            
+        
+        function sCentreID = GetCentreID(obj)            
             sCentreID = obj.sCentreID;
         end
+        
         function sPatientID = GetPatientID(obj)
             sPatientID = obj.sPatientID;
         end
+        
         function sSlideID = GetSlideID(obj)
             sSlideID = obj.sSlideID;
         end
+        
         function sFileTilepath = GetTileFilepath(obj)
             sFileTilepath = obj.sTileFilepath;
-        end
-        
-        
+        end    
     end
+
     
-    methods (Static)
-        %function dResolution_MicronsPerPixelSide = GetSourceSlideResolution(sSlideID)
-        %load(obj.sSlideResolutionListFilepath)
-        %end
-    end
-    
-    
-    %
     % *********************************************************************
     % *                        TILE VECTOR METHODS                        *
     % *********************************************************************
     
     % GETTERS
     methods (Static)
+        
         function vsCentreIDs = GetCentreIDs(voTiles)
             vsCentreIDs = strings(length(voTiles), 1);
             for iTile = 1:length(voTiles)
@@ -153,6 +150,7 @@ classdef Tile
     
     % SPECIAL FINDERS/SELCTORS
     methods (Static)
+        
         function vbIndices = FindTilesWithTheseIDs(voTiles, vsIDs, NameValueArgs)
             arguments
                 voTiles
@@ -185,8 +183,11 @@ classdef Tile
         end
     end
     
+    % DATA SPLIT METHODS
     methods (Static)
-        function [vbTrainTileIndices, vbTestTileIndices] = PerformRandomTwoWaySplit(voTiles,dFractionGroupsInTraining, NameValueArgs)
+        
+        function [vbTrainTileIndices, vbTestTileIndices] = PerformRandomTwoWaySplit(...
+                voTiles, dFractionGroupsInTraining, NameValueArgs)
             arguments
                 voTiles
                 dFractionGroupsInTraining
@@ -194,10 +195,6 @@ classdef Tile
                 NameValueArgs.bByPatientID (1,1) logical = false
                 NameValueArgs.bBySlideIDs (1,1) logical = false
             end
-            %###################### TO DO ##############################
-            % - check that there are enough groups for a split (e.g.
-            %    more than one center or one patient given)
-            %###########################################################
             
             % Get group IDs based on what is used for splitting
             if NameValueArgs.bByPatientID
@@ -226,10 +223,8 @@ classdef Tile
             % Find the corresponding tiles
             vbTrainTileIndices = Tile.FindTilesWithTheseIDs(voTiles, vsTrainGroups, chGroupName, true);
             vbTestTileIndices = ~vbTrainTileIndices;
-        end
+        end    
         
-    end
-    
-    
-end
+    end  
+ end
 

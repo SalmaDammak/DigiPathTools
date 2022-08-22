@@ -1,4 +1,4 @@
-classdef GeneralUtils
+classdef MyGeneralUtils
     
     methods (Static = true, Access = public)
         
