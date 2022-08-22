@@ -16,7 +16,7 @@ classdef TCGAUtils
     properties (Access = public, Constant = true)
         
         % In the SampleName: TCGA-AA-BBBB-CCC-DDD-EEEE-FF
-        % TCGA-AA-BBBB is the patient ID, and AA is the tissue sample source. The reminaing bit doesn't
+        % TCGA-AA-BBBB is the patient ID, and AA is the tissue sample source ("centre"). The reminaing bit doesn't
         % follow documented convention as informed by CDG help desk. Helpful links:
         % https://docs.gdc.cancer.gov/Encyclopedia/pages/TCGA_Barcode/
         % https://gdc.cancer.gov/resources-tcga-users/tcga-code-tables
@@ -31,8 +31,6 @@ classdef TCGAUtils
         sPatientIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w).*";
         sSlideIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w-.*)\s.*";
         sTileIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w-.*]).*";
-
-        
     end
     
     
@@ -41,111 +39,32 @@ classdef TCGAUtils
     % *********************************************************************
     
     methods (Static = true, Access = public)
-        function [sCentreID, sPatientID, sSlideID, sTileID, sFilename] = GetIDsFromTileFilepath(sTileFilepath)
-            % Parse filename for IDs. Break apart the filename from the
-            % path first as all regular expressions are based on the
-            % filename not the full path
-            vsFileparts = split(sTileFilepath, filesep);
-            sFilename = vsFileparts(end);
-            sCentreID = regexp(sFilename, TCGAUtils.sCentreIDRegexpForToken, 'tokens','once');
-            sPatientID = regexp(sFilename, TCGAUtils.sPatientIDRegexpForToken, 'tokens','once');
-            sSlideID = regexp(sFilename, TCGAUtils.sSlideIDRegexpForToken, 'tokens','once');
-            sTileID = regexp(sFilename, TCGAUtils.sTileIDRegexpForToken, 'tokens','once');
-        end
-        
-
-        
-        function vsSlideNames = GetSlideNameFromTilePath(vsTilePaths)
+        function [vsCentreIDs, vsPatientIDs, vsSlideIDs, vsTileIDs, vsFilenames] = GetIDsFromTileFilepaths(vsTileFilepaths)
+            % Note that filepaths or filenames are both okay here
             
-            [~,sTileFileNames,~] = fileparts(vsTilePaths);
+            % Initialize all outputs
+            dNumPaths = length(vsTileFilepaths);
+            vsCentreIDs = strings(dNumPaths,1);
+            vsPatientIDs = strings(dNumPaths,1);
+            vsSlideIDs = strings(dNumPaths,1);
+            vsTileIDs = strings(dNumPaths,1);
+            vsFilenames = strings(dNumPaths,1);
             
-            vsSlideNames = strings(length(sTileFileNames), 1);
-            for iTileIdx = 1:length(sTileFileNames)
-                chCurrentTileName = char(sTileFileNames(iTileIdx));
-                dStartOfCoordinates = regexpi(chCurrentTileName , '\s\[.+\]');
-                if isempty(dStartOfCoordinates)
-                    error('Non-typical tile path encountered!')
-                end
-                vsSlideNames(iTileIdx) = string(chCurrentTileName(1:dStartOfCoordinates-1));
-            end
-        end
-        
-        function [dNumUniqueTSS, dNumUniquePatients,vsUniquePatientIDs, vsUniqueTSS,...
-                vsPatientIDs, vsTSS] = GetSlideInformationFromSlideNames(vsSlides)
-            
-            arguments
-                vsSlides (1,:) string
-            end
-            
-            vsPatientIDs = string(cellfun(@(s) s(1:12), cellstr(vsSlides), 'UniformOutput', false));
-            vsUniquePatientIDs = unique(vsPatientIDs);
-            dNumUniquePatients = length(vsUniquePatientIDs);
-            
-            vsTSS = string(cellfun(@(s) s(1:7), cellstr(vsSlides), 'UniformOutput', false));
-            vsUniqueTSS = unique(vsTSS);
-            dNumUniqueTSS = length(vsUniqueTSS);
-            
-        end
-        
-        function [vsSlides,dNumUniqueTSS, dNumUniquePatients,vsUniquePatientIDs, vsUniqueTSS,...
-                vsPatientIDs, vsTSS] = GetSlideInformationFromSlideNamesTextFile(chTextFileLocation)
-            
-            chSlides = strtrim(fileread(chTextFileLocation));
-            c1chSlides = strsplit(chSlides,'\n');
-            vsSlides = string(c1chSlides);
-            
-            
-            [dNumUniqueTSS, dNumUniquePatients,vsUniquePatientIDs, vsUniqueTSS,...
-                vsPatientIDs, vsTSS] = TCGAUtilities.GetSlideInformationFromSlideNames(vsSlides);
-        end
-        
-        function c1chIDForEachTiles = GetPatientIDsFromTileFilepath(c1chTileFilePaths)
-            arguments
-                c1chTileFilePaths (:,1) cell {mustBeText}
-            end
-            
-            [~,c1chTileFileNames,~] = fileparts(c1chTileFilePaths);
-            
-            if iscell(c1chTileFileNames)
-                c1chIDForEachTiles = cellfun(@(c) regexpi(c,TCGAUtilities.chPatientIDExpression,'match'),...
-                    c1chTileFileNames, 'UniformOutput', false);
-                vdEmptyRows = cellfun(@(c) isempty(c), c1chIDForEachTiles);
-                c1chIDForEachTiles = [c1chIDForEachTiles{:}]';
+            for iTileFilepathIdx = 1:dNumPaths
+                sTileFilepath = vsTileFilepaths(iTileFilepathIdx);
                 
-            elseif ischar(c1chTileFileNames)
-                c1chIDForEachTiles = regexpi(c1chTileFileNames,TCGAUtilities.chPatientIDExpression, 'match');
-                vdEmptyRows = isempty(c1chIDForEachTiles);
-            end
-            
-            if any(vdEmptyRows)
-                error("One or more IDs could not be obtained from the list of file names of paths you provided. " + ...
-                    "Ensure that they have a string with this format " + string(TCGAUtilities.chPatientIDExpression))
-                
-            end
-            
-            if length(c1chIDForEachTiles) ~= length(c1chTileFilePaths)
-                error("The number of output IDs is different than the number of input filenames. Something went wrong.")
+                % Parse filename for IDs. Break apart the filename from the
+                % path first as all regular expressions are based on the
+                % filename not the full path
+                vsFileparts = split(sTileFilepath, filesep);
+                vsFilenames(iTileFilepathIdx) = vsFileparts(end);
+                vsCentreIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sCentreIDRegexpForToken, 'tokens','once');
+                vsPatientIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sPatientIDRegexpForToken, 'tokens','once');
+                vsSlideIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sSlideIDRegexpForToken, 'tokens','once');
+                vsTileIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sTileIDRegexpForToken, 'tokens','once');
             end
         end
         
-        function c1chTSSForEachTile = GetTSSFromTileFilepath(c1chTileFilenames)
-            arguments
-                c1chTileFilenames (:,1) cell {mustBeText}
-            end
-            
-            c1chTSSForEachTile = cellfun(@(c) regexpi(c,TCGAUtilities.chTSSExpression,'match'),...
-                c1chTileFilenames, 'UniformOutput', false);
-            
-            vdEmptyRows = cellfun(@(c) isempty(c), c1chTSSForEachTile);
-            
-            if any(vdEmptyRows)
-                error("One or more IDs could not be obtained from the list of file names of paths you provided. " + ...
-                    "Ensure that they have a string with this format " + string(TCGAUtilities.chTSSExpression))
-                
-            end
-            
-            c1chTSSForEachTile = [c1chTSSForEachTile{:}]';
-        end
         function [msAllInfo, vsFileNames, vsTSS, vsPatientIds] = GetTSSInfoForTCGASlidesInDir(chDatasetDirectory)
             % This function allows me to pull out the information on the TCGA-LUSC slides that I want to
             % diversify whenever I want a subsample from the dataset
@@ -173,7 +92,6 @@ classdef TCGAUtils
             msAllInfo =  [vsFileNames, vsTSS, vsPatientIds];
             
         end
-        
         function [vsChosenFileNames, vsChosenIDs, vsChosenTSS] = GetSubsetOfTCGASlides(dNumRequiredSlides, chDatasetDirectory, vsBlackListedSlidesSVS)
             % This function obtains a subset slides from the TCGA LUSC data set using the following rules:
             %   1. maximize uniqueness. If dNumSlides < than the number of Tissue Source Sites (TSS),
@@ -188,16 +106,15 @@ classdef TCGAUtils
             
             % Get slide info
             if ischar(chDatasetDirectory)
-                [~,vsAllFileNames, vsTSS, vsPatientIDs] = GetSampleSourceInfoForATCGADataset(chDatasetDirectory);
-                
+                [~,vsFilenames, vsCentreIDs, vsPatientIDs] = TCGAUtils.GetSampleSourceInfoForATCGADataset(chDatasetDirectory);
             elseif isstring(chDatasetDirectory) % QUICK N DIRTY FIX TO INPUT A VECTOR OF STRINGS OF NAMES INSTEAD OF A DIR
-                [~, ~,~, ~,vsPatientIDs, vsTSS] = TCGAUtilities.GetSlideInformationFromSlideNames(chDatasetDirectory);
-                vsAllFileNames = chDatasetDirectory;
+                [~, ~,~, ~,vsPatientIDs, vsCentreIDs] = TCGAUtils.GetSlideInformationFromSlideNames(chDatasetDirectory);
+                vsFilenames = chDatasetDirectory;
             end
             
             % Remove any blacklisted slides
             if ~isempty(vsBlackListedSlidesSVS)
-                bBlackListedSlideIndicesInFullList = false(length(vsAllFileNames), 1);
+                bBlackListedSlideIndicesInFullList = false(length(vsFilenames), 1);
                 
                 % Go through every blacklisted slide
                 for i = 1:length(vsBlackListedSlidesSVS)
@@ -210,7 +127,7 @@ classdef TCGAUtils
                     end
                     
                     % Find it in the full list
-                    dBlackListedSlideIdx = find(strcmp(vsBlackListedSlidesSVS(i), vsAllFileNames));
+                    dBlackListedSlideIdx = find(strcmp(vsBlackListedSlidesSVS(i), vsFilenames));
                     
                     % Add it to the removal list
                     if ~isempty(dBlackListedSlideIdx)
@@ -221,29 +138,29 @@ classdef TCGAUtils
                     end
                 end
                 
-                vsAllFileNames(bBlackListedSlideIndicesInFullList) = [];
-                vsTSS(bBlackListedSlideIndicesInFullList) = [];
+                vsFilenames(bBlackListedSlideIndicesInFullList) = [];
+                vsCentreIDs(bBlackListedSlideIndicesInFullList) = [];
                 vsPatientIDs(bBlackListedSlideIndicesInFullList) = [];
             end
             
             % Error if the number of requested slides exceeds what's available
-            if dNumRequiredSlides > length(vsAllFileNames)
+            if dNumRequiredSlides > length(vsFilenames)
                 error("GetSubsetOfTCGASlides:BadRequest","The number of slides requested "...
                     + "is more than those available. The number of slides requested is " + num2str(dNumRequiredSlides)...
-                    + ". The number available is " + num2str(length(vsAllFileNames)) + ". " ...
+                    + ". The number available is " + num2str(length(vsFilenames)) + ". " ...
                     + "Maybe you blacklisted too many slides.");
             end
             
             % Group slides IDs by TSS ID
-            vsUniqueTSS = unique(vsTSS);
+            vsUniqueTSS = unique(vsCentreIDs);
             dNumUniqueTSS = length(vsUniqueTSS);
             
             c1vsValidGroupedSlides = cell(dNumUniqueTSS,2);
             for k = 1:dNumUniqueTSS
                 sUniqueTSS = vsUniqueTSS(k);
-                vbIDIndexToGroup = (vsTSS == sUniqueTSS);
+                vbIDIndexToGroup = (vsCentreIDs == sUniqueTSS);
                 c1vsValidGroupedSlides{k,1} = vsPatientIDs(vbIDIndexToGroup);
-                c1vsValidGroupedSlides{k,2} = vsAllFileNames(vbIDIndexToGroup);
+                c1vsValidGroupedSlides{k,2} = vsFilenames(vbIDIndexToGroup);
             end
             
             % Set counters to keep adding until we have the required number
@@ -359,7 +276,7 @@ classdef TCGAUtils
             % - check that there are enough groups for a split (e.g.
             %    more than one center or one patient given)
             %###########################################################
-            [~, ~,~, ~, vsPatientIDs, vsCentreIDs] = GetSlideInformationFromSlideNames(vsSlides);
+            [vsCentreIDs, vsPatientIDs] = TCGAUtils.GetIDsFromTileFilepaths(vsSlideNames);
             
             % Get group IDs based on what is used for splitting
             if NameValueArgs.bByPatientID
@@ -385,5 +302,7 @@ classdef TCGAUtils
             vbTrainSlideIndices = Tile.FindTilesWithTheseIDs(vsSlideNames, vsTrainGroups, chGroupName, true);
             vbTestSlideIndices = ~vbTrainSlideIndices;
         end
+        
+       
     end
 end
