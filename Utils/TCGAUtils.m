@@ -57,7 +57,8 @@ classdef TCGAUtils
                 % path first as all regular expressions are based on the
                 % filename not the full path
                 vsFileparts = split(sTileFilepath, filesep);
-                vsFilenames(iTileFilepathIdx) = vsFileparts(end);
+                sFilename = vsFileparts(end);
+                vsFilenames(iTileFilepathIdx) = sFilename;
                 vsCentreIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sCentreIDRegexpForToken, 'tokens','once');
                 vsPatientIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sPatientIDRegexpForToken, 'tokens','once');
                 vsSlideIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sSlideIDRegexpForToken, 'tokens','once');
@@ -277,7 +278,7 @@ classdef TCGAUtils
             % - check that there are enough groups for a split (e.g.
             %    more than one center or one patient given)
             %###########################################################
-            [vsCentreIDs, vsPatientIDs] = TCGAUtils.GetIDsFromTileFilepaths(vsSlideNames);
+            [vsCentreIDs, vsPatientIDs, vsSlideIDs] = TCGAUtils.GetIDsFromTileFilepaths(vsSlideNames);
             
             % Get group IDs based on what is used for splitting
             if NameValueArgs.bByPatientID
@@ -287,7 +288,7 @@ classdef TCGAUtils
                 vsGroupIDs = vsCentreIDs;
                 chGroupName = 'bByCentreIDs';
             elseif NameValueArgs.bBySlideIDs
-                vsGroupIDs = Tile.GetSlieIDs(voTiles);
+                vsGroupIDs = vsSlideIDs;
                 chGroupName = 'bBySlideIDs';
             end
             

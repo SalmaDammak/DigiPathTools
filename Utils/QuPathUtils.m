@@ -35,7 +35,7 @@ classdef QuPathUtils
             dResizeFactor = regexp(sFilename, QuPathUtils.sResizeRegexpForToken, 'tokens','once');
             if isempty(dResizeFactor)
                 dResizeFactor = 1;
-                warning("No resize factor was found so a factor of 1 was assumed.")
+                % warning("No resize factor was found so a factor of 1 was assumed.")
             end
         end
         

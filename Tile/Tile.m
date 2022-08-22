@@ -54,9 +54,9 @@ classdef Tile
                 NameValueArgs.sPatientID
                 NameValueArgs.sSlideID
                 NameValueArgs.sTileID
-                NameValueArgs.bFromTCGA
                 NameValueArgs.sStain
                 NameValueArgs.sChannels
+                NameValueArgs.bFromTCGA
             end
             
             % IDENTIFIERS
@@ -66,7 +66,7 @@ classdef Tile
             
             if isfield(NameValueArgs,'bFromTCGA') && NameValueArgs.bFromTCGA
                 % Get the info from the filename
-                [obj.sCentreID, obj.sPatientID, obj.sSlideID, obj.sTileID] = TCGAUtils.GetIDsFromTileFilepath(sTileFilepath);
+                [obj.sCentreID, obj.sPatientID, obj.sSlideID, obj.sTileID] = TCGAUtils.GetIDsFromTileFilepaths(sTileFilepath);
             else
                 obj.sCentreID = NameValueArgs.sCentreID;
                 obj.sPatientID = NameValueArgs.sPatientID;

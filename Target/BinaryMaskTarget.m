@@ -17,20 +17,30 @@ classdef BinaryMaskTarget < Target
            arguments
                sMaskFilepath
                sTargetName
+               NameValueArgs.sCentreID
+               NameValueArgs.sPatientID
+               NameValueArgs.sSlideID
+               NameValueArgs.sTileID
+               NameValueArgs.bFromTCGA
                NameValueArgs.sTargetDescription
-            end
+           end
             
-            
-            % Deconstruct the filename for the IDs
-            sTileFilepath = strrep(sMaskFilepath, TileImagesUtils.sMaskCode, "");
-            [NameValueArgs.sCentreID, NameValueArgs.sPatientID, NameValueArgs.sSlideID, NameValueArgs.sTileID] =...
-                QuPathUtils.GetIDsFromTileFilepath(sTileFilepath);
-            sTargetSource = sMaskFilepath;
-            
-            % Use the mask path as the target source
-            c1xNameValueArgs = MyGeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
-            obj = obj@Target(sTargetName, sTargetSource, c1xNameValueArgs{:});
-
+           % Use the mask path as the target source
+           sTargetSource = sMaskFilepath;
+           
+           % If this is from the TCGA, use TCGA tools to automatically
+           % assign IDs
+           if isfield(NameValueArgs,'bFromTCGA') && NameValueArgs.bFromTCGA
+               
+               % Deconstruct the filename for the IDs
+               sTileFilepath = strrep(sMaskFilepath, TileImagesUtils.sMaskCode, "");
+               [NameValueArgs.sCentreID, NameValueArgs.sPatientID, NameValueArgs.sSlideID, NameValueArgs.sTileID] =...
+                   TCGAUtils.GetIDsFromTileFilepaths(sTileFilepath);
+           end
+           
+           c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs,'vsFieldsToIgnore','bFromTCGA');
+           obj = obj@Target(sTargetName, sTargetSource, c1xNameValueArgs{:});
+           
         end
         
         function oPercentCoverageTarget = ConvertToPercentCoverageTarget(obj)
@@ -38,7 +48,7 @@ classdef BinaryMaskTarget < Target
             m3bMask = imread(obj.GetMaskPath());
             dPercentCoverage = (sum(m3bMask(:)))/numel(m3bMask);
 
-            c1xObjInfo = MyGeneralUtils.ConvertObjToCellArray(obj, 'vsPropertiesToIgnore',...
+            c1xObjInfo = GeneralUtils.ConvertObjToCellArray(obj, 'vsPropertiesToIgnore',...
                 ["sTargetName", "sTargetSource","sTrueClassName","sFalseClassName"]);
             oPercentCoverageTarget = ScalarTarget(dPercentCoverage, obj.sTargetName, obj.sTargetSource, c1xObjInfo{:});                        
         end
@@ -68,6 +78,7 @@ classdef BinaryMaskTarget < Target
            arguments
                sTileAndMaskDir string
                sTargetName
+               NameValueArgs.bFromTCGA
                NameValueArgs.sTargetDescription
                NameValueArgs.sTargetSource
                NameValueArgs.sPartialFileDirectory
@@ -86,13 +97,17 @@ classdef BinaryMaskTarget < Target
                
                % Make target
                chMaskFilepath = sTileAndMaskDir + stMasksInDir(iMask).name;
-               c1xNameValueArgs = MyGeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs, 'vsFieldsToIgnore',"sPartialFileDirectory");
+               c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs, 'vsFieldsToIgnore',"sPartialFileDirectory");
                oMask = BinaryMaskTarget(chMaskFilepath, sTargetName, c1xNameValueArgs{:});
 
                % Make TileWithTarget object, passing in target
                chTileFilepath = strrep(chMaskFilepath, TileImagesUtils.sMaskCode, '');
-               c1oTiles{iMask} = TileWithTarget(chTileFilepath, oMask);
-               
+               if isfield(NameValueArgs,'bFromTCGA') && NameValueArgs.bFromTCGA
+               c1oTiles{iMask} = TileWithTarget(chTileFilepath, oMask, 'bFromTCGA', NameValueArgs.bFromTCGA);
+               else
+                   c1oTiles{iMask} = TileWithTarget(chTileFilepath, oMask);
+               end
+                   
                % Estimate remaining time and report ite every 10min
                dtCurrentTime = datetime('now');
                

@@ -32,7 +32,7 @@ classdef ScalarTarget < Target
                 NameValueArgs.sFalseClassName
             end
             
-            c1xNameValueArgs = MyGeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
+            c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
             obj = obj@Target(sTargetName, sTargetSource, c1xNameValueArgs{:});
             
             obj.dValue = dValue;
@@ -50,7 +50,7 @@ classdef ScalarTarget < Target
                 bValue = obj.GetValue() > NameValueArgs.dPositiveIsMoreThanThreshold;
             end
 
-            c1xObjInfo = MyGeneralUtils.ConvertObjToCellArray(obj,'vsPropertiesToIgnore', ["sTargetName", "sTargetSource", "dValue"]);            
+            c1xObjInfo = GeneralUtils.ConvertObjToCellArray(obj,'vsPropertiesToIgnore', ["sTargetName", "sTargetSource", "dValue"]);            
             oBinaryTarget = BinaryTarget(bValue, obj.sTargetName, obj.sTargetSource, c1xObjInfo{:});    
         end
     end
@@ -81,7 +81,7 @@ classdef ScalarTarget < Target
                 NameValueArgs.dPositiveIsMoreThanThreshold
             end
             for iTile = 1:length(voTiles)
-                c1xNameValueArgs = MyGeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
+                c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
                 voTiles(iTile).oTarget = voTiles(iTile).oTarget.ConvertToBinaryTarget(c1xNameValueArgs{:});
             end
         end

@@ -89,8 +89,9 @@ classdef GeneralUtils
         function c1xNameValueArgs = ConvertNameValueArgsStructToCell(stNameValueArgsToConvert, NameValueArgs)
             arguments
                 stNameValueArgsToConvert
-                NameValueArgs.vsFieldsToIgnore
+                NameValueArgs.vsFieldsToIgnore string
             end
+            
             
             vsFields = string(fields(stNameValueArgsToConvert));
             c1xValues = struct2cell(stNameValueArgsToConvert);

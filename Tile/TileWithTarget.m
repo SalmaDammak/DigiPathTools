@@ -14,8 +14,14 @@ classdef TileWithTarget < Tile
     
     % CONSTRUCTOR
     methods
-        function obj = TileWithTarget(sTileFilepath, oTarget)
-            obj = obj@Tile(sTileFilepath);
+        function obj = TileWithTarget(sTileFilepath, oTarget, NameValueArgs)
+            arguments
+                sTileFilepath
+                oTarget
+                NameValueArgs.bFromTCGA
+            end
+            c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
+            obj = obj@Tile(sTileFilepath, c1xNameValueArgs{:});
             obj.oTarget = oTarget;
         end
         

@@ -32,7 +32,7 @@ classdef BinaryTarget < Target
                 NameValueArgs.sFalseClassName
             end
             
-            c1xNameValueArgs = MyGeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
+            c1xNameValueArgs = GeneralUtils.ConvertNameValueArgsStructToCell(NameValueArgs);
             obj = obj@Target(sTargetName, sTargetSource,c1xNameValueArgs{:});
             
             obj.bValue = bValue;
