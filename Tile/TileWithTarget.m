@@ -1,4 +1,4 @@
-classdef TCGATileWithTarget < TCGATile
+classdef TileWithTarget < Tile
     
     % *********************************************************************
     % *                            PROPERTIES                             *
@@ -14,8 +14,8 @@ classdef TCGATileWithTarget < TCGATile
     
     % CONSTRUCTOR
     methods
-        function obj = TCGATileWithTarget(sTileFilepath, oTarget)
-            obj = obj@TCGATile(sTileFilepath);
+        function obj = TileWithTarget(sTileFilepath, oTarget)
+            obj = obj@Tile(sTileFilepath);
             obj.oTarget = oTarget;
         end
         

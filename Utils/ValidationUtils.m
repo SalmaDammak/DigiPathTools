@@ -1,4 +1,4 @@
-classdef MyValidationUtils
+classdef ValidationUtils
     
     methods (Static = true, Access = public)
         

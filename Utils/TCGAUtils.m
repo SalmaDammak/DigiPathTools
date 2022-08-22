@@ -268,9 +268,10 @@ classdef TCGAUtils
         function [vbTrainSlideIndices, vbTestSlideIndices] = PerformRandomTwoWaySplit(vsSlideNames,dFractionGroupsInTraining, NameValueArgs)
             arguments
                 vsSlideNames
-                dFractionGroupsInTraining
-                NameValueArgs.bByPatientID (1,1) logical = false
+                dFractionGroupsInTraining                
                 NameValueArgs.bByCentreID (1,1) logical = false % i.e., TSS ID
+                NameValueArgs.bByPatientID (1,1) logical = false
+                NameValueArgs.bBySlideIDs (1,1) logical = false
             end
             %###################### TO DO ##############################
             % - check that there are enough groups for a split (e.g.
@@ -285,7 +286,11 @@ classdef TCGAUtils
             elseif NameValueArgs.bByCentreID
                 vsGroupIDs = vsCentreIDs;
                 chGroupName = 'bByCentreIDs';
+            elseif NameValueArgs.bBySlideIDs
+                vsGroupIDs = Tile.GetSlieIDs(voTiles);
+                chGroupName = 'bBySlideIDs';
             end
+            
             vsUniqueGroupIDs = unique(vsGroupIDs);
             dNumGroups = length(vsUniqueGroupIDs);
             
