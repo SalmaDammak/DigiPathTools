@@ -29,7 +29,7 @@ classdef TCGAUtils
         % e.g., regexp(sFilename, sCentreIDRegexpForToken,'tokens','once')
         sCentreIDRegexpForToken = "TCGA-(\w\w)-.*";
         sPatientIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w).*";
-        sSlideIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w-.*)\s.*";
+        sSlideIDRegexpForToken = "(TCGA-\w\w-\w\w\w\w-.*)\s*";
         sTileIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w-.*]).*";
     end
     
@@ -39,7 +39,12 @@ classdef TCGAUtils
     % *********************************************************************
     
     methods (Static = true, Access = public)
-        function [vsCentreIDs, vsPatientIDs, vsSlideIDs, vsTileIDs, vsFilenames] = GetIDsFromTileFilepaths(vsTileFilepaths)
+        function [vsCentreIDs, vsPatientIDs, vsSlideIDs, vsTileIDs, vsFilenames] = GetIDsFromTileFilepaths(vsTileFilepaths, NameValueArgs)
+            %[vsCentreIDs, vsPatientIDs, vsSlideIDs, vsTileIDs, vsFilenames] = TCGAUtils.GetIDsFromTileFilepaths(vsTileFilepaths)
+            arguments
+                vsTileFilepaths
+                NameValueArgs.bSlideNamesNotTilesGiven = false
+            end
             % Note that filepaths or filenames are both okay here
             
             % Initialize all outputs
@@ -60,12 +65,14 @@ classdef TCGAUtils
                 sFilename = vsFileparts(end);
                 vsFilenames(iTileFilepathIdx) = sFilename;
                 vsCentreIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sCentreIDRegexpForToken, 'tokens','once');
-                vsPatientIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sPatientIDRegexpForToken, 'tokens','once');
-                vsSlideIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sSlideIDRegexpForToken, 'tokens','once');
+                vsPatientIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sPatientIDRegexpForToken, 'tokens','once');                
+                vsSlideIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sSlideIDRegexpForToken, 'tokens','once');    
+                if ~NameValueArgs.bSlideNamesNotTilesGiven
                 vsTileIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sTileIDRegexpForToken, 'tokens','once');
+                end
             end
-        end
-        
+            
+        end        
         function [msAllInfo, vsFileNames, vsTSS, vsPatientIds] = GetTSSInfoForTCGASlidesInDir(chDatasetDirectory)
             % This function allows me to pull out the information on the TCGA-LUSC slides that I want to
             % diversify whenever I want a subsample from the dataset
@@ -269,27 +276,27 @@ classdef TCGAUtils
         function [vbTrainSlideIndices, vbTestSlideIndices] = PerformRandomTwoWaySplit(vsSlideNames,dFractionGroupsInTraining, NameValueArgs)
             arguments
                 vsSlideNames
-                dFractionGroupsInTraining                
+                dFractionGroupsInTraining
                 NameValueArgs.bByCentreID (1,1) logical = false % i.e., TSS ID
                 NameValueArgs.bByPatientID (1,1) logical = false
-                NameValueArgs.bBySlideIDs (1,1) logical = false
+                NameValueArgs.bBySlideID (1,1) logical = false
             end
             %###################### TO DO ##############################
             % - check that there are enough groups for a split (e.g.
             %    more than one center or one patient given)
             %###########################################################
-            [vsCentreIDs, vsPatientIDs, vsSlideIDs] = TCGAUtils.GetIDsFromTileFilepaths(vsSlideNames);
+            [vsCentreIDs, vsPatientIDs, vsSlideIDs] = TCGAUtils.GetIDsFromTileFilepaths(vsSlideNames, 'bSlideNamesNotTilesGiven', true);
             
             % Get group IDs based on what is used for splitting
             if NameValueArgs.bByPatientID
                 vsGroupIDs = vsPatientIDs;
-                chGroupName = 'bByPatientIDs';
+                chGroupName = 'bByPatientID';
             elseif NameValueArgs.bByCentreID
                 vsGroupIDs = vsCentreIDs;
-                chGroupName = 'bByCentreIDs';
+                chGroupName = 'bByCentreID';
             elseif NameValueArgs.bBySlideIDs
                 vsGroupIDs = vsSlideIDs;
-                chGroupName = 'bBySlideIDs';
+                chGroupName = 'bBySlideID';
             end
             
             vsUniqueGroupIDs = unique(vsGroupIDs);
@@ -305,10 +312,42 @@ classdef TCGAUtils
             vsTrainGroups = vsUniqueGroupIDs(vdTrainGroupIndices);
             
             % Find the corresponding tiles
-            vbTrainSlideIndices = Tile.FindTilesWithTheseIDs(vsSlideNames, vsTrainGroups, chGroupName, true);
+            vbTrainSlideIndices = TCGAUtils.FindSlidesWithTheseIDs(vsSlideNames, vsTrainGroups, chGroupName, true);
             vbTestSlideIndices = ~vbTrainSlideIndices;
         end
         
-       
+        function vbIndices = FindSlidesWithTheseIDs(vsSlideNames, vsIDs, NameValueArgs)
+            arguments
+                vsSlideNames
+                vsIDs
+                NameValueArgs.bByCentreID (1,1) logical = false
+                NameValueArgs.bByPatientID (1,1) logical = false
+                NameValueArgs.bBySlideID (1,1) logical = false
+            end
+            
+            [vsCentreIDs, vsPatientIDs, vsSlideIDs] = TCGAUtils.GetIDsFromTileFilepaths(vsSlideNames, 'bSlideNamesNotTilesGiven', true);
+            
+            % Get group IDs based on what is used for splitting
+            if NameValueArgs.bByPatientID
+                vsGroupIDs = vsPatientIDs;
+            elseif NameValueArgs.bByCentreID
+                vsGroupIDs = vsCentreIDs;
+            elseif NameValueArgs.bBySlideIDs
+                vsGroupIDs = vsSlideIDs;
+            end
+            
+            % Loop through the IDs to see which elements match it
+            vbIndices = false(length(vsGroupIDs),1);
+            for iID = 1:length(vsIDs)
+                sCurrentID = vsIDs(iID);
+                vbCurrentIDIndices = vsGroupIDs == sCurrentID;
+                
+                % This operation turns the current ID indices to true in
+                % the overall "selector" vector
+                vbIndices = or(vbIndices, vbCurrentIDIndices);
+            end
+            
+        end
     end
+    
 end

@@ -123,5 +123,10 @@ classdef MyGeneralUtils
             
         end
         
+        function chExtentsion = GetFileExtension(chFilePath)
+            c1chExtentsion = regexp(chFilePath, '.*\.([a-zA-Z]+)', 'tokens','once');
+            chExtentsion = c1chExtentsion{:};
+        end
+        
     end
 end

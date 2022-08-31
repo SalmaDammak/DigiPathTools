@@ -20,7 +20,7 @@ classdef TileImagesUtils
     end
     
     % *********************************************************************
-    % *                          PUBLIC METHODS                           *             
+    % *                          PUBLIC METHODS                           *
     % *********************************************************************
     
     methods (Access = public, Static = true)
@@ -61,15 +61,18 @@ classdef TileImagesUtils
             % Get all tile paths
             stTilePaths = dir([chTileAndLabelmapDir, char(oQuPathUtils.sImageRegexp)]);
             if isempty(stTilePaths)
-                error(['The target directory does not have any images with a names following this expression: ',char(oQuPathUtils.sImageRegexp)])
-                
+                error('TileImagesUtils:EmptyDir',...
+                    ['The target directory does not have any images with a names following this expression: ',char(oQuPathUtils.sImageRegexp)])
             end
             
             % Get all labelmap paths
             stLabelmapPaths = dir([chTileAndLabelmapDir, char(oQuPathUtils.sLabelmapRegexp)]);
             if isempty(stLabelmapPaths)
-                error(['The target directory does not have any images with a names following this expression: ',char(oQuPathUtils.sLabelmapRegexp)])
+                error('TileImagesUtils:EmptyDir',...
+                    ['The target directory does not have any images with a names following this expression: ',char(oQuPathUtils.sLabelmapRegexp)])
             end
+            
+            dNumberOftilesRemoved = 0;
             
             % Go through all tile paths
             for i = 1 : length(stTilePaths)
@@ -82,8 +85,14 @@ classdef TileImagesUtils
                 % Otherwise, skip it
                 if ~any(contains({stLabelmapPaths(:).name}, chLabelmapName))
                     delete([stTilePaths(i).folder, '\', stTilePaths(i).name])
+                    dNumberOftilesRemoved = dNumberOftilesRemoved + 1;
                 end
             end
+            
+            dNumTiles = length(stTilePaths);
+            disp("The original number of tiles is " + num2str(dNumTiles)+...
+                ". The number of tiles removed is " + num2str(dNumberOftilesRemoved) + ...
+                " (" + num2str((dNumberOftilesRemoved/dNumTiles)*100)+ "% of the original number).")
         end
         
         function [c1chPathsOfLabelmapsWithBadLabels, c1chSlidesWithBadLabels] = ...
@@ -128,7 +137,7 @@ classdef TileImagesUtils
                     MyValidationUtils.MustBeExistingDir,...
                     MyValidationUtils.MustBeDirPath,...
                     MyValidationUtils.MustBeNonEmptyDir}
-                    vdAcceptableROILabels (1,:) double
+                vdAcceptableROILabels (1,:) double
             end
             
             oQuPathUtils = QuPathUtils();
@@ -137,7 +146,8 @@ classdef TileImagesUtils
             stLabelmapPaths = dir([chTileAndLabelmapDir, char(oQuPathUtils.sLabelmapRegexp)]);
             
             if isempty(stLabelmapPaths)
-                error(['The target directory does not have any images with a names following this regular expression: ', char(oQuPathUtils.sLabelmapRegexp)])
+                error('TileImagesUtils:EmptyDir',...
+                    ['The target directory does not have any images with a names following this regular expression: ', char(oQuPathUtils.sLabelmapRegexp)])
             end
             
             c1chPathsOfLabelmapsWithBadLabels = {};
@@ -168,6 +178,13 @@ classdef TileImagesUtils
             c1chSlidesWithBadLabels = unique(c1chSlidesWithBadLabels);
             close all
             close all hidden
+            
+            dNumTiles = length(stLabelmapPaths);
+            dNumberOftilesRemoved = length(c1chSlidesWithBadLabels);
+            disp("The original number of tiles is " + num2str(dNumTiles)+...
+                ". The number of tiles removed is " + num2str(dNumberOftilesRemoved) + ...
+                " (" + num2str((dNumberOftilesRemoved/dNumTiles)*100)+ "% of the original number).")
+            
         end
         
         function RemoveTilesWithThisROILabel(chTileAndLabelmapDir, dROILabel, NameValueArgs)
@@ -215,11 +232,11 @@ classdef TileImagesUtils
             stLabelmapPaths = dir([chTileAndLabelmapDir, char(oQuPathUtils.sLabelmapRegexp)]);
             
             if isempty(stLabelmapPaths)
-                error(['The target directory does not have any images with a names following this expression: ', char(oQuPathUtils.sLabelmapRegexp)])
+                error('TileImagesUtils:EmptyDir',...
+                    ['The target directory does not have any images with a names following this expression: ', char(oQuPathUtils.sLabelmapRegexp)])
             end
             
-            dNumTiles = length(stLabelmapPaths);
-            disp("The original number of tiles is " + num2str(dNumTiles));
+            dNumTiles = length(stLabelmapPaths);            
             dNumberOftilesRemoved = 0;
             
             % Go through all paths
@@ -249,8 +266,9 @@ classdef TileImagesUtils
                     dNumberOftilesRemoved = dNumberOftilesRemoved + 1;
                 end
             end
-            disp("The number of tiles removed is " + num2str(dNumberOftilesRemoved));
-            disp("This is %" + num2str((dNumberOftilesRemoved/dNumTiles)*100)+ " of the original number of tiles.")
+            disp("The original number of tiles is " + num2str(dNumTiles)+...
+                ". The number of tiles removed is " + num2str(dNumberOftilesRemoved) + ...
+                " (" + num2str((dNumberOftilesRemoved/dNumTiles)*100)+ "% of the original number).")
         end
         
         function MakeMasksFromLabelmaps(...
@@ -311,13 +329,14 @@ classdef TileImagesUtils
             
             if length(vdLabelmapLabels) ~= length(vbLabelmapLabelIsForeground)
                 error('The length of the labelmap labels vector must equal that of the vector indicating which are foreground.')
-            end         
-
+            end
+            
             % Get all labelmap paths
             stMaskPaths = dir([chTileAndLabelmapDir, char(oQuPathUtils.sLabelmapRegexp)]);
             
             if isempty(stMaskPaths)
-                error(['The target directory does not have any images with a names following this expression: ', char(oQuPathUtils.sLabelmapRegexp)])
+                error('TileImagesUtils:EmptyDir',...
+                    ['The target directory does not have any images with a names following this expression: ', char(oQuPathUtils.sLabelmapRegexp)])
             end
             
             % Loop through all the labelmaps
@@ -397,6 +416,219 @@ classdef TileImagesUtils
             end
         end
         
+        function vsClearSlides = MoveTilesAndLabelmapsOfClearSlide(chTileAndLabelmapDir, chTileAndLabelmapOutputDir, NameValueArgs)
+            %vsClearSlides = MoveTilesAndLabelmapsOfClearSlide(chSlideTilesDir, chRemovedSlideTileDir, 'dMaxPercentClearAllowed',0.5);
+            
+            arguments
+                chTileAndLabelmapDir (1,:) char {mustBeText,...
+                    MyValidationUtils.MustBeExistingDir,...
+                    MyValidationUtils.MustBeDirPath,...
+                    MyValidationUtils.MustBeNonEmptyDir}
+                chTileAndLabelmapOutputDir(1,:) char {mustBeText,...
+                    MyValidationUtils.MustBeExistingDir,...
+                    MyValidationUtils.MustBeDirPath}
+                NameValueArgs.dMaxPercentClearAllowed (1,1) double {mustBePositive,...
+                    mustBeInRange(NameValueArgs.dMaxPercentClearAllowed,0,1,'inclusive')}
+            end
+            % Get all tile paths
+            stTilePaths = dir([chTileAndLabelmapDir, char(QuPathUtils.sImageRegexp)]);
+            
+            % Make sure there are tiles found
+            if isempty(stTilePaths)
+                error(['The target directory does not have any images with a names following this expression: ',char(QuPathUtils.sImageRegexp)])
+            end
+            
+            bClearSlideImages = false(1, length(stTilePaths));
+            dNumTiles = length(stTilePaths);
+            disp("The original number of tiles is " + num2str(dNumTiles));
+            dNumberOftilesRemoved = 0;
+            
+            % Loop through tiles and labelmaps
+            for iTileIdx = 1:length(stTilePaths)
+                
+                % Derive the labelmap path from the tile path
+                chTilePath = [chTileAndLabelmapDir, stTilePaths(iTileIdx).name];
+                
+                m3iImage = imread(chTilePath);
+                
+                % Blur to reduce noise on blank slide appearing as foreground
+                m3iBlurredImage = imgaussfilt(m3iImage,4);
+                
+                % Binarize, 1 = blank slide, 0 = tissue
+                dThresh = 200/255; % determined emperically
+                m3bBinaryImage = imbinarize(m3iBlurredImage, dThresh);
+                
+                % Flatten to allow for viewing
+                m2bFlat = sum(m3bBinaryImage,3);
+                
+                % When a pixel in flat equals three, it means that all RGB layers
+                % indicated that the slide is blank there
+                m2bFlat = m2bFlat == 3;
+                
+                % 1 is all clear slide, 0 all non-clear slide
+                dPercentClear = sum(m2bFlat,'all')/(length(m2bFlat)*width(m2bFlat));
+                
+                
+                if  dPercentClear > NameValueArgs.dMaxPercentClearAllowed
+                    
+                    % copy tile and its labelmap
+                    copyfile(chTilePath, chTileAndLabelmapOutputDir);                    
+                    
+                    chLabelmapPath = strrep(chTilePath, '.png',[char(QuPathUtils.sLabelmapCode),'.png']);
+                    copyfile(chLabelmapPath, chTileAndLabelmapOutputDir);
+                    
+                    % delete tile and its labelmap from the original
+                    % directory
+%                     delete(chTilePath)
+%                     delete(chLabelmapPath)
+%                                         
+                    bClearSlideImages(iTileIdx) = true;
+                    dNumberOftilesRemoved = dNumberOftilesRemoved + 1;
+                end
+                
+                
+            end
+            
+            sTileNames = string({stTilePaths.name});
+            vsClearSlides = sTileNames(bClearSlideImages);
+            
+            disp("The number of tiles removed is " + num2str(dNumberOftilesRemoved));
+            disp("This is %" + num2str((dNumberOftilesRemoved/dNumTiles)*100)+ " of the original number of tiles.")
+        end
+        
+        function c1chBadTilesAndLabelmaps = ResizeTilesAndLabelmaps(chTileAndLabelmapDir, dSideLength_Pixels, NameValueArgs)
+            arguments
+                chTileAndLabelmapDir (1,:) char {mustBeText,...
+                    MyValidationUtils.MustBeExistingDir,...
+                    MyValidationUtils.MustBeDirPath,...
+                    MyValidationUtils.MustBeNonEmptyDir}
+                dSideLength_Pixels (1,1) {mustBePositive,...
+                    mustBeInteger, mustBeNonNan}
+                
+                NameValueArgs.chOutputDir (1,:) char {mustBeText,...
+                    MyValidationUtils.MustBeExistingDir,...
+                    MyValidationUtils.MustBeDirPath} = chTileAndLabelmapDir
+                NameValueArgs.chImresizeInterpolationMethodForImage...
+                    (1,:) char {mustBeText} = 'bilinear' %bilinear is best for upsampling, nearest is best for downsampling
+                NameValueArgs.chImresizeInterpolationMethodForLabelmaps...
+                    (1,:) char {mustBeText} = 'nearest' %nearest is the only acceptable option for a labelmap
+                NameValueArgs.bAllTilesLikeFirstTile (1,1) logical = true
+            end
+            
+            % Get all tile paths
+            stTilePaths = dir([chTileAndLabelmapDir, char(QuPathUtils.sImageRegexp)]);
+            
+            % Make sure there are tiles found
+            if isempty(stTilePaths)
+                error(['The target directory does not have any images with a names following this expression: ',char(QuPathUtils.sImageRegexp)])
+            end
+            
+            fig = figure('Visible', 'off'); % This supresses the colourmap figure from popping up
+            oColormap = colormap(QuPathUtils.m2dNewCancerColourMap);
+            
+            c1chBadTilesAndLabelmaps = {};
+            % Loop through tiles and labelmaps
+            for iTileIdx = 1:length(stTilePaths)
+                
+                % Derive the labelmap path from the tile path
+                chCurrentTileName = stTilePaths(iTileIdx).name;
+                chExtentsion = MyGeneralUtils.GetFileExtension(chCurrentTileName);
+                chLabelmapName = strrep(chCurrentTileName, ['.', chExtentsion],...
+                    [char(QuPathUtils.sLabelmapCode),'.', chExtentsion]);
+                
+                % Read image
+                try
+                    m3iTile = imread([chTileAndLabelmapDir, chCurrentTileName]);
+                catch
+                    disp("sth")
+                end
+                
+                m3iLabelmap = imread([chTileAndLabelmapDir, chLabelmapName]);
+                
+                
+                % Get image sizes and make sure they fit constraints
+                vdTileSize = size(m3iTile);
+                vdLabelmapSize = size(m3iLabelmap);
+                
+                % Tile and labelmap must have the same height and width as
+                % each other
+                if any(vdTileSize(1:2) ~= vdLabelmapSize(1:2))
+                    warning("This tile and its labelmap have different sizes: " + string(chCurrentTileName));
+                    c1chBadTilesAndLabelmaps = [c1chBadTilesAndLabelmaps; chCurrentTileName];
+                    continue
+                end
+                
+                % Tiles and labelmaps must be square
+                if vdTileSize(1) ~= vdTileSize(2)
+                    warning("This tile is not square: " + string(chCurrentTileName));
+                    c1chBadTilesAndLabelmaps = [c1chBadTilesAndLabelmaps; chCurrentTileName];
+                    continue
+                end
+                
+                if NameValueArgs.bAllTilesLikeFirstTile
+                    % Show on first iteration only
+                    bRunOnThisIteration = iTileIdx == 1;
+                    if bRunOnThisIteration
+                        warning("Treating all tiles as having the same dimensions as the first tile.");
+                    end
+                    
+                else
+                    bRunOnThisIteration = true;
+                end
+                
+                if bRunOnThisIteration
+                    % Display whether sizing up or down
+                    sTileSideLength = num2str(vdTileSize(1));
+                    sRequestedTileSideLength = num2str(dSideLength_Pixels);
+                    if vdTileSize(1) < dSideLength_Pixels
+                        disp("Sizing up from " + sTileSideLength + "x" + sTileSideLength +...
+                            " pixels to " + sRequestedTileSideLength + "x" + sRequestedTileSideLength + " pixels.")
+                        
+                    elseif vdTileSize(1) > dSideLength_Pixels
+                        disp("Sizing down from " + sTileSideLength + "x" + sTileSideLength +...
+                            " pixels to " + sRequestedTileSideLength + "x" + sRequestedTileSideLength + " pixels.")
+                        
+                    elseif vdTileSize(1) == dSideLength_Pixels
+                        disp("The requested side length already equals the requested side length.")
+                        
+                        if NameValueArgs.bAllTilesLikeFirstTile
+                            % Stop looping through tiles if all are the
+                            % same size and that is the same size as
+                            % requested
+                            break
+                        else
+                            continue
+                        end
+                    end
+                end
+                
+                % Resize
+                m3iResizedTile = imresize(m3iTile, [dSideLength_Pixels, dSideLength_Pixels],...
+                    'method', NameValueArgs.chImresizeInterpolationMethodForImage);
+                
+                m3iResizedLabelmap = imresize(m3iLabelmap, [dSideLength_Pixels, dSideLength_Pixels],...
+                    'method', NameValueArgs.chImresizeInterpolationMethodForLabelmaps);
+                
+                % Change file names to indicate that a resize was done
+                chResizeFactor = num2str(vdTileSize(1)/dSideLength_Pixels, '%5f');
+                chOutputTileFilename = insertAfter(chCurrentTileName, QuPathUtils.sStartOfTileInfoForStrfind, ['d=',chResizeFactor,',']);
+                
+                % Change the height & width (ca do it in one go because
+                % they're the same)
+                c1chOrigWidthInfo = regexp(chCurrentTileName, char(QuPathUtils.sWidthRegexpForToken),'tokens','once');
+                chOutputTileFilename = strrep(chOutputTileFilename, c1chOrigWidthInfo{:}, char(sRequestedTileSideLength));
+                
+                % Save
+                chOutputiTilePath = [NameValueArgs.chOutputDir,chOutputTileFilename];
+                chOutputLabelmapPath = strrep(chOutputiTilePath, ['.', chExtentsion],...
+                    [char(QuPathUtils.sLabelmapCode),'.', chExtentsion]);
+                imwrite(m3iResizedTile, chOutputiTilePath)
+                delete([chTileAndLabelmapDir, chCurrentTileName])
+                imwrite(m3iResizedLabelmap, oColormap, chOutputLabelmapPath)
+                delete([chTileAndLabelmapDir, chLabelmapName])
+            end
+        end
+        
         function PrepareTilesAndMasksForColabNotebook(chTileAndMaskInputDir, chTileAndMaskOutputDir)
             %PrepareTilesAndMasksForColabNotebook(chTileAndMaskInputDir, chTileAndMaskOutputDir)
             %
@@ -430,7 +662,7 @@ classdef TileImagesUtils
                     MyValidationUtils.MustBeDirPath,...
                     MyValidationUtils.MustBeNonEmptyDir}
             end
-                        
+            
             % Get all label paths
             stMaskPaths = dir([chTileAndMaskInputDir, TileImagesUtils.chMaskRegexp]);
             

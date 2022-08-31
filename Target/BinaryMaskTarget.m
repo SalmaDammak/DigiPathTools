@@ -86,6 +86,10 @@ classdef BinaryMaskTarget < Target
             
            % Get list of masks in dir
            stMasksInDir = dir(sTileAndMaskDir + "*" + TileImagesUtils.sMaskCode + "*");
+           if isempty(stMasksInDir)
+               error("BinaryMaskTarget:EmptyDir",...
+                   "The target directory does not have any images with a names following this expression: " + TileImagesUtils.sMaskCode)
+           end
            
            % Maks vector of tiles
            c1oTiles = cell(length(stMasksInDir), 1);
