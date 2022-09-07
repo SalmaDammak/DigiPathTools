@@ -9,14 +9,14 @@ classdef QuPathUtils
         sXLocationRegexpForToken = ".*x=(\d*),.*";
         sYLocationRegexpForToken = ".*y=(\d*),.*";
         sWidthRegexpForToken = ".*w=(\d*),.*";
-        sHeightRegexpForToken = ".*h=(\d*).*";        
+        sHeightRegexpForToken = ".*h=(\d*).*";
         
         % Regular expressions for file search in directory
         sImageRegexp = "*].*";
         sLabelmapCode = "-labelled";
-        sLabelmapRegexp = "*]-labelled.*";               
+        sLabelmapRegexp = "*]-labelled.*";
         
-        sStartOfTileInfoForStrfind = "[";        
+        sStartOfTileInfoForStrfind = "[";
         
         % Colourmap
         m2dCancerContourMap = ...
@@ -62,6 +62,107 @@ classdef QuPathUtils
                 % warning("No resize factor was found so a factor of 1 was assumed.")
             end
         end
+        
+        function sSlideName = GetSlideNameFromTileFilepath(sTileFilePath)
+            % Get filename
+            vsFileparts = split(sTileFilePath, filesep);
+            sFilename = vsFileparts(end);
+            
+            dEndIdx = strfind(sFilename, QuPathUtils.sStartOfTileInfoForStrfind);
+            dEndIdx = dEndIdx - 2; % to adjust to an added space
+            
+            % Can't index elements in a string (it's 1x1) so I need to make
+            % it a char
+            chFileName = char(sFilename);
+            sSlideName = string(chFileName(1:dEndIdx));
+        end
+        
+        function vsSkippedNonSquareTiles = PreparePredictionTablesForPlotting(vsTileFilenames, vdConfidences, vdPredictions, vbTruth, sCSVOutputDir)
+            % vsSlideNames | x_location | y_location | width | height |
+            % vdConfidences| prediction | vbTruth | TP | FP | TN | FN
+            
+            dNumTiles = length(vsTileFilenames);
+            
+            % Intialize each column
+            vsSlideNames = strings(dNumTiles,1);
+            vdXLocations = nan(dNumTiles,1);
+            vdYLocations = nan(dNumTiles,1);
+            vdSideLengths = nan(dNumTiles,1);
+            vbNonSquareTiles = false(dNumTiles,1);
+            
+            % Collect information
+            for iTileIdx = 1:dNumTiles
+                
+                % Get slide name
+                vsSlideNames(iTileIdx) = QuPathUtils.GetSlideNameFromTileFilepath(vsTileFilenames(iTileIdx));
+                
+                % Get location and size information
+                [vdXLocations(iTileIdx), vdYLocations(iTileIdx), dWidth, dHeight] = ...
+                    QuPathUtils.GetTileCoordinatesFromName(vsTileFilenames(iTileIdx));
+                
+                % Make sure height and width (i.e."sideLength") are equal
+                if dWidth ~= dHeight
+                    warning("This is not a square tile.")
+                    vbNonSquareTiles(iTileIdx) = true;
+                end
+                vdSideLengths(iTileIdx) = dWidth;
+            end
+            
+            % Add true positive, false positive, true negative, and false
+            % negative columns
+            vdTP = false(dNumTiles, 1);
+            vdFP = false(dNumTiles, 1);
+            vdTN = false(dNumTiles, 1);
+            vdFN = false(dNumTiles, 1);
+            
+            for iTile = 1:dNumTiles
+                % Predicted positive and is actually positive, i.e. TP
+                if vdPredictions(iTile) == true && vbTruth(iTile) == true
+                    vdTP(iTile) = true;
+                    
+                % Predicted positive and is actually negative, i.e. FP
+                elseif vdPredictions(iTile) == true && vbTruth(iTile) == false
+                    vdFP(iTile) = true;
+                
+                % Predicted negative and is actually negative, i.e. TN
+                elseif vdPredictions(iTile) == false && vbTruth(iTile) == false
+                    vdTN(iTile) = true;
+                    
+                % Predicted negative and is actually positive, i.e. FN
+                elseif vdPredictions(iTile) == false && vbTruth(iTile) == true
+                    vdFN(iTile) = true;
+                end                
+            end            
+            
+            vdConfidenceOfPositive_Percent = vdConfidences * 100;
+            
+            tPredictionTable = table(vsSlideNames, vdXLocations, vdYLocations,...
+                vdSideLengths, vdConfidenceOfPositive_Percent, vdPredictions, vbTruth,...
+                vdTP, vdFP, vdTN, vdFN);
+                        
+            % Remove non-square tiles
+            vsSkippedNonSquareTiles = tPredictionTable.vsSlideNames(vbNonSquareTiles);
+            tPredictionTable = tPredictionTable(~vbNonSquareTiles, :);
+            
+            % Now create and write a csv for each slide
+            vsUniqueSlides = unique(tPredictionTable.vsSlideNames);
+            
+            for iSlideIdx = 1:length(vsUniqueSlides)
+                sUnqiueSlideName = vsUniqueSlides(iSlideIdx);
+                vbRowsOfSlide = tPredictionTable.vsSlideNames == sUnqiueSlideName;
+                
+                % Create table and rename columns used by QuPath to match 
+                % the Groovy script.
+                tPredictionTableForSlide = tPredictionTable(vbRowsOfSlide, :);
+                tPredictionTableForSlide = renamevars(tPredictionTableForSlide,...
+                ["vdXLocations", "vdYLocations", "vdSideLengths", "vdPredictions"],...
+                ["x_location", "y_location", "sideLength", "prediction"]);
+                writetable(tPredictionTableForSlide,...
+                    fullfile(sCSVOutputDir, sUnqiueSlideName + ".csv"), 'FileType', 'text', 'delimiter',',');                
+            end  
+        end
+        
+        
         
         function VerifyThatWSIsHaveContours(c1chRequestedWSIs, chContourDir)
             % e.g., paths
