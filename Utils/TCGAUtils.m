@@ -29,7 +29,7 @@ classdef TCGAUtils
         % e.g., regexp(sFilename, sCentreIDRegexpForToken,'tokens','once')
         sCentreIDRegexpForToken = "TCGA-(\w\w)-.*";
         sPatientIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w).*";
-        sSlideIDRegexpForToken = "(TCGA-\w\w-\w\w\w\w-.*)\s*";
+        sSlideIDRegexpForToken = "(TCGA-\w\w-\w\w\w\w-[\w\d\.\-]*)*";
         sTileIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w-.*]).*";
     end
     
