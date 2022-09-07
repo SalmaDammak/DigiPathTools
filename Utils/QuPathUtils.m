@@ -87,7 +87,8 @@ classdef QuPathUtils
             vsSlideNames = strings(dNumTiles,1);
             vdXLocations = nan(dNumTiles,1);
             vdYLocations = nan(dNumTiles,1);
-            vdSideLengths = nan(dNumTiles,1);
+            vdHeight = nan(dNumTiles,1);
+            vdWidth = nan(dNumTiles,1);
             vbNonSquareTiles = false(dNumTiles,1);
             
             % Collect information
@@ -100,12 +101,8 @@ classdef QuPathUtils
                 [vdXLocations(iTileIdx), vdYLocations(iTileIdx), dWidth, dHeight] = ...
                     QuPathUtils.GetTileCoordinatesFromName(vsTileFilenames(iTileIdx));
                 
-                % Make sure height and width (i.e."sideLength") are equal
-                if dWidth ~= dHeight
-                    warning("This is not a square tile.")
-                    vbNonSquareTiles(iTileIdx) = true;
-                end
-                vdSideLengths(iTileIdx) = dWidth;
+                vdHeight(iTileIdx) = dWidth;
+                vdWidth(iTileIdx) = dHeight;
             end
             
             % Add true positive, false positive, true negative, and false
@@ -137,7 +134,7 @@ classdef QuPathUtils
             vdConfidenceOfPositive_Percent = vdConfidences * 100;
             
             tPredictionTable = table(vsSlideNames, vdXLocations, vdYLocations,...
-                vdSideLengths, vdConfidenceOfPositive_Percent, vdPredictions, vbTruth,...
+                vdHeight, vdWidth, vdConfidenceOfPositive_Percent, vdPredictions, vbTruth,...
                 vdTP, vdFP, vdTN, vdFN);
                         
             % Remove non-square tiles
@@ -155,8 +152,8 @@ classdef QuPathUtils
                 % the Groovy script.
                 tPredictionTableForSlide = tPredictionTable(vbRowsOfSlide, :);
                 tPredictionTableForSlide = renamevars(tPredictionTableForSlide,...
-                ["vdXLocations", "vdYLocations", "vdSideLengths", "vdPredictions"],...
-                ["x_location", "y_location", "sideLength", "prediction"]);
+                ["vdXLocations", "vdYLocations", "vdHeight", "vdWidth", "vdPredictions"],...
+                ["x_location", "y_location", "height", "width", "prediction"]);
                 writetable(tPredictionTableForSlide,...
                     fullfile(sCSVOutputDir, sUnqiueSlideName + ".csv"), 'FileType', 'text', 'delimiter',',');                
             end  
