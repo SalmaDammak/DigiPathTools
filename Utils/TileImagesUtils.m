@@ -492,8 +492,7 @@ classdef TileImagesUtils
                 m3bBinaryImage = imbinarize(m3iBlurredImage, dThresh);
                 
                 % Flatten to allow for viewing
-                %m2bFlat = sum(m3bBinaryImage,3);
-                %imshow(m2bFlat)
+                m2bFlat = sum(m3bBinaryImage,3);
                 
                 % When a pixel in flat equals three, it means that all RGB layers
                 % indicated that the slide is blank there
@@ -501,6 +500,7 @@ classdef TileImagesUtils
                 
                 % 1 is all clear slide, 0 all non-clear slide
                 dPercentClear = sum(m2bFlat,'all')/(length(m2bFlat)*width(m2bFlat));
+                
         end
         
         function c1chBadTilesAndLabelmaps = ResizeTilesAndLabelmaps(chTileAndLabelmapDir, dSideLength_Pixels, NameValueArgs)
