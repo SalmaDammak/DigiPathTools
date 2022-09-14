@@ -77,9 +77,24 @@ classdef QuPathUtils
             sSlideName = string(chFileName(1:dEndIdx));
         end
         
-        function vsSkippedNonSquareTiles = PreparePredictionTablesForPlotting(vsTileFilenames, vdConfidences, vdPredictions, vbTruth, sCSVOutputDir)
+        function PreparePredictionTablesForPlotting(...
+                vsTileFilenames, vdPredictions, sCSVOutputDir, NameValueArgs)
             % vsSlideNames | x_location | y_location | width | height |
             % vdConfidences| prediction | vbTruth | TP | FP | TN | FN
+            %
+            %QuPathUtils.PreparePredictionTablesForPlotting(...
+            %   vsFilenamesFromMATLAB,  double(vsiConfidences)>0.5, Experiment.GetResultsDirectory(),...
+            %   'vdConfidences', double(vsiConfidences),...
+            %   'vbTruth', viTruth', 'bAddFalseAndTrueNegativeAndPositiveColumns', true);
+            
+            arguments
+                vsTileFilenames
+                vdPredictions
+                sCSVOutputDir
+                NameValueArgs.vdConfidences
+                NameValueArgs.vbTruth
+                NameValueArgs.bAddFalseAndTrueNegativeAndPositiveColumns
+            end
             
             dNumTiles = length(vsTileFilenames);
             
@@ -89,7 +104,6 @@ classdef QuPathUtils
             vdYLocations = nan(dNumTiles,1);
             vdHeight = nan(dNumTiles,1);
             vdWidth = nan(dNumTiles,1);
-            vbNonSquareTiles = false(dNumTiles,1);
             
             % Collect information
             for iTileIdx = 1:dNumTiles
@@ -105,41 +119,55 @@ classdef QuPathUtils
                 vdWidth(iTileIdx) = dHeight;
             end
             
-            % Add true positive, false positive, true negative, and false
-            % negative columns
-            vdTP = false(dNumTiles, 1);
-            vdFP = false(dNumTiles, 1);
-            vdTN = false(dNumTiles, 1);
-            vdFN = false(dNumTiles, 1);
             
-            for iTile = 1:dNumTiles
-                % Predicted positive and is actually positive, i.e. TP
-                if vdPredictions(iTile) == true && vbTruth(iTile) == true
-                    vdTP(iTile) = true;
-                    
-                % Predicted positive and is actually negative, i.e. FP
-                elseif vdPredictions(iTile) == true && vbTruth(iTile) == false
-                    vdFP(iTile) = true;
+            tPredictionTable = table(vsSlideNames, vdXLocations, vdYLocations, vdHeight, vdWidth, vdPredictions);
+            
+            if  isfield(NameValueArgs, 'vdConfidences')
+                vdConfidenceOfPositive_Percent = NameValueArgs.vdConfidences * 100;
+                tPredictionTable = addvars(tPredictionTable, vdConfidenceOfPositive_Percent,...
+                    'NewVariableNames','vdConfidences');
+            end
+            
+            if  isfield(NameValueArgs, 'vbTruth')
+                tPredictionTable = addvars(tPredictionTable, NameValueArgs.vbTruth,...
+                    'NewVariableNames','vbTruth');
+            end
+            
+            if NameValueArgs.bAddFalseAndTrueNegativeAndPositiveColumns
                 
-                % Predicted negative and is actually negative, i.e. TN
-                elseif vdPredictions(iTile) == false && vbTruth(iTile) == false
-                    vdTN(iTile) = true;
-                    
-                % Predicted negative and is actually positive, i.e. FN
-                elseif vdPredictions(iTile) == false && vbTruth(iTile) == true
-                    vdFN(iTile) = true;
-                end                
-            end            
-            
-            vdConfidenceOfPositive_Percent = vdConfidences * 100;
-            
-            tPredictionTable = table(vsSlideNames, vdXLocations, vdYLocations,...
-                vdHeight, vdWidth, vdConfidenceOfPositive_Percent, vdPredictions, vbTruth,...
-                vdTP, vdFP, vdTN, vdFN);
+                if ~isfield(NameValueArgs, 'vbTruth')
+                    error(" You must give the groundtruth as a NameValueArg to caluclate the false and true positive and negative columns.")
+                end
+                
+                % Add true positive, false positive, true negative, and false
+                % negative columns
+                vdTP = false(dNumTiles, 1);
+                vdFP = false(dNumTiles, 1);
+                vdTN = false(dNumTiles, 1);
+                vdFN = false(dNumTiles, 1);
+                
+                for iTile = 1:dNumTiles
+                    % Predicted positive and is actually positive, i.e. TP
+                    if vdPredictions(iTile) == true && NameValueArgs.vbTruth(iTile) == true
+                        vdTP(iTile) = true;
                         
-            % Remove non-square tiles
-            vsSkippedNonSquareTiles = tPredictionTable.vsSlideNames(vbNonSquareTiles);
-            tPredictionTable = tPredictionTable(~vbNonSquareTiles, :);
+                        % Predicted positive and is actually negative, i.e. FP
+                    elseif vdPredictions(iTile) == true && NameValueArgs.vbTruth(iTile) == false
+                        vdFP(iTile) = true;
+                        
+                        % Predicted negative and is actually negative, i.e. TN
+                    elseif vdPredictions(iTile) == false && NameValueArgs.vbTruth(iTile) == false
+                        vdTN(iTile) = true;
+                        
+                        % Predicted negative and is actually positive, i.e. FN
+                    elseif vdPredictions(iTile) == false && NameValueArgs.vbTruth(iTile) == true
+                        vdFN(iTile) = true;
+                    end
+                end
+                
+                tFalseAndTrueNegativeAndPositiveColumns = table(vdTP, vdFP, vdTN, vdFN);
+                tPredictionTable = [tPredictionTable, tFalseAndTrueNegativeAndPositiveColumns];
+            end
             
             % Now create and write a csv for each slide
             vsUniqueSlides = unique(tPredictionTable.vsSlideNames);
@@ -148,15 +176,15 @@ classdef QuPathUtils
                 sUnqiueSlideName = vsUniqueSlides(iSlideIdx);
                 vbRowsOfSlide = tPredictionTable.vsSlideNames == sUnqiueSlideName;
                 
-                % Create table and rename columns used by QuPath to match 
+                % Create table and rename columns used by QuPath to match
                 % the Groovy script.
                 tPredictionTableForSlide = tPredictionTable(vbRowsOfSlide, :);
                 tPredictionTableForSlide = renamevars(tPredictionTableForSlide,...
-                ["vdXLocations", "vdYLocations", "vdHeight", "vdWidth", "vdPredictions"],...
-                ["x_location", "y_location", "height", "width", "prediction"]);
+                    ["vdXLocations", "vdYLocations", "vdHeight", "vdWidth", "vdPredictions"],...
+                    ["x_location", "y_location", "height", "width", "prediction"]);
                 writetable(tPredictionTableForSlide,...
-                    fullfile(sCSVOutputDir, sUnqiueSlideName + ".csv"), 'FileType', 'text', 'delimiter',',');                
-            end  
+                    fullfile(sCSVOutputDir, sUnqiueSlideName + ".csv"), 'FileType', 'text', 'delimiter',',');
+            end
         end
         
         
