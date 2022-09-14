@@ -19,10 +19,11 @@ classdef TilesTableUtils
                 chTargetCSVFilepath
             end
             
-            stTileFilePaths = dir(fullfile(sTileAndLabelmapDir, QuPathUtils.sImageRegexp));            
-            tTiles = string({stTileFilePaths.name}');            
+            stTileFilePaths = dir(fullfile(sTileAndLabelmapDir, QuPathUtils.sImageRegexp));
+            c1chFullPaths = cellfun(@(a,b) [a, '\', b], {stTileFilePaths.folder}', {stTileFilePaths.name}', 'UniformOutput', false);
+            tTiles = string(c1chFullPaths);            
             
-            writecell({stTileFilePaths.name}',chTargetCSVFilepath, 'FileType', 'text', 'delimiter',',');
+            writecell(c1chFullPaths,chTargetCSVFilepath, 'FileType', 'text', 'delimiter',',');
             
         end
         
