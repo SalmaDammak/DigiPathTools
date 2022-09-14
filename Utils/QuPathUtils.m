@@ -77,7 +77,7 @@ classdef QuPathUtils
             sSlideName = string(chFileName(1:dEndIdx));
         end
         
-        function PreparePredictionTablesForPlotting(...
+        function c1tPredictiontables = PreparePredictionTablesForPlotting(...
                 vsTileFilenames, vdPredictions, sCSVOutputDir, NameValueArgs)
             % vsSlideNames | x_location | y_location | width | height |
             % vdConfidences| prediction | vbTruth | TP | FP | TN | FN
@@ -133,7 +133,7 @@ classdef QuPathUtils
                     'NewVariableNames','vbTruth');
             end
             
-            if NameValueArgs.bAddFalseAndTrueNegativeAndPositiveColumns
+            if isfield(NameValueArgs, 'bAddFalseAndTrueNegativeAndPositiveColumns') && NameValueArgs.bAddFalseAndTrueNegativeAndPositiveColumns
                 
                 if ~isfield(NameValueArgs, 'vbTruth')
                     error(" You must give the groundtruth as a NameValueArg to caluclate the false and true positive and negative columns.")
@@ -171,6 +171,7 @@ classdef QuPathUtils
             
             % Now create and write a csv for each slide
             vsUniqueSlides = unique(tPredictionTable.vsSlideNames);
+            c1tPredictiontables = cell(length(vsUniqueSlides), 1);
             
             for iSlideIdx = 1:length(vsUniqueSlides)
                 sUnqiueSlideName = vsUniqueSlides(iSlideIdx);
@@ -184,6 +185,7 @@ classdef QuPathUtils
                     ["x_location", "y_location", "height", "width", "prediction"]);
                 writetable(tPredictionTableForSlide,...
                     fullfile(sCSVOutputDir, sUnqiueSlideName + ".csv"), 'FileType', 'text', 'delimiter',',');
+                c1tPredictiontables{iSlideIdx} = tPredictionTableForSlide;
             end
         end
         
