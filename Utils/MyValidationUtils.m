@@ -5,7 +5,7 @@ classdef MyValidationUtils
         
         function MustBeDirPath(chDirPath)
             arguments
-                chDirPath (1,:)
+                chDirPath (1,:) char
             end
             
             % Directory paths must end in a backslash
