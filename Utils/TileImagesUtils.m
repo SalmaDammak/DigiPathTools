@@ -448,25 +448,8 @@ classdef TileImagesUtils
                 
                 % Derive the labelmap path from the tile path
                 chTilePath = [chTileAndLabelmapDir, stTilePaths(iTileIdx).name];
-                
-                m3iImage = imread(chTilePath);
-                
-                % Blur to reduce noise on blank slide appearing as foreground
-                m3iBlurredImage = imgaussfilt(m3iImage,4);
-                
-                % Binarize, 1 = blank slide, 0 = tissue
-                dThresh = 200/255; % determined emperically
-                m3bBinaryImage = imbinarize(m3iBlurredImage, dThresh);
-                
-                % Flatten to allow for viewing
-                m2bFlat = sum(m3bBinaryImage,3);
-                
-                % When a pixel in flat equals three, it means that all RGB layers
-                % indicated that the slide is blank there
-                m2bFlat = m2bFlat == 3;
-                
-                % 1 is all clear slide, 0 all non-clear slide
-                dPercentClear = sum(m2bFlat,'all')/(length(m2bFlat)*width(m2bFlat));
+                 
+                dPercentClear = TileImagesUtils.FindClearSlidePercentInTile(chTilePath);
                 
                 
                 if  dPercentClear > NameValueArgs.dMaxPercentClearAllowed
@@ -479,9 +462,9 @@ classdef TileImagesUtils
                     
                     % delete tile and its labelmap from the original
                     % directory
-%                     delete(chTilePath)
-%                     delete(chLabelmapPath)
-%                                         
+                    delete(chTilePath)
+                    delete(chLabelmapPath)
+                                        
                     bClearSlideImages(iTileIdx) = true;
                     dNumberOftilesRemoved = dNumberOftilesRemoved + 1;
                 end
@@ -494,6 +477,30 @@ classdef TileImagesUtils
             
             disp("The number of tiles removed is " + num2str(dNumberOftilesRemoved));
             disp("This is %" + num2str((dNumberOftilesRemoved/dNumTiles)*100)+ " of the original number of tiles.")
+        end
+        
+        function dPercentClear = FindClearSlidePercentInTile(chTilePath)
+            
+                % Read image
+                m3iImage = imread(chTilePath);
+                
+                % Blur to reduce noise on blank slide appearing as foreground
+                m3iBlurredImage = imgaussfilt(m3iImage,4);
+                
+                % Binarize, 1 = blank slide, 0 = tissue
+                dThresh = 200/255; % determined emperically
+                m3bBinaryImage = imbinarize(m3iBlurredImage, dThresh);
+                
+                % Flatten to allow for viewing
+                %m2bFlat = sum(m3bBinaryImage,3);
+                %imshow(m2bFlat)
+                
+                % When a pixel in flat equals three, it means that all RGB layers
+                % indicated that the slide is blank there
+                m2bFlat = m2bFlat == 3;
+                
+                % 1 is all clear slide, 0 all non-clear slide
+                dPercentClear = sum(m2bFlat,'all')/(length(m2bFlat)*width(m2bFlat));
         end
         
         function c1chBadTilesAndLabelmaps = ResizeTilesAndLabelmaps(chTileAndLabelmapDir, dSideLength_Pixels, NameValueArgs)
