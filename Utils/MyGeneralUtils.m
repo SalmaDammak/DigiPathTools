@@ -128,5 +128,22 @@ classdef MyGeneralUtils
             chExtentsion = c1chExtentsion{:};
         end
         
+
+        function dPPV = CaluclatePPV(vdPredictions, vdTruth)
+            dNumTruePositive = 0;
+            dNumFalsePositive = 0;
+            
+            for i = 1:length(vdPredictions)
+                if vdPredictions(i) == 1 && vdTruth(i) == 1
+                    dNumTruePositive = dNumTruePositive + 1;
+                elseif vdPredictions(i) == 1 && vdTruth(i) == 0
+                    dNumFalsePositive = dNumFalsePositive + 1;
+                end
+                
+            end
+            dPPV = dNumTruePositive / (dNumTruePositive + dNumFalsePositive);
+            disp("PPV is: " + num2str(round(100*(dPPV)))+ "%")
+        end
+        
     end
 end
