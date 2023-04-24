@@ -5,7 +5,7 @@ classdef QuPathUtils
         
         % Regular expressions for search using "token"
         % % e.g., regexp(sFilename, QuPathUtils.sResizeRegexpForToken,'tokens','once')
-        sResizeRegexpForToken = ".*d=(\d*),.*";
+        sResizeRegexpForToken = ".*d=(.*),x=.*";
         sXLocationRegexpForToken = ".*x=(\d*),.*";
         sYLocationRegexpForToken = ".*y=(\d*),.*";
         sWidthRegexpForToken = ".*w=(\d*),.*";
@@ -50,17 +50,38 @@ classdef QuPathUtils
             sFilename = vsFileparts(end);
             
             % Get location and size information
-            dXOrigin = regexp(sFilename, QuPathUtils.sXLocationRegexpForToken, 'tokens','once');
-            dYOrigin = regexp(sFilename, QuPathUtils.sYLocationRegexpForToken, 'tokens','once');
-            dWidth = regexp(sFilename, QuPathUtils.sWidthRegexpForToken, 'tokens','once');
-            dHeight = regexp(sFilename, QuPathUtils.sHeightRegexpForToken, 'tokens','once');
+            dXOrigin = double(regexp(sFilename, QuPathUtils.sXLocationRegexpForToken, 'tokens','once'));
+            dYOrigin = double(regexp(sFilename, QuPathUtils.sYLocationRegexpForToken, 'tokens','once'));
+            dWidth = double(regexp(sFilename, QuPathUtils.sWidthRegexpForToken, 'tokens','once'));
+            dHeight = double(regexp(sFilename, QuPathUtils.sHeightRegexpForToken, 'tokens','once'));
             
             % If there is a downsample factor, get it
-            dResizeFactor = regexp(sFilename, QuPathUtils.sResizeRegexpForToken, 'tokens','once');
+            dResizeFactor = double(regexp(sFilename, QuPathUtils.sResizeRegexpForToken, 'tokens','once'));
             if isempty(dResizeFactor)
                 dResizeFactor = 1;
                 % warning("No resize factor was found so a factor of 1 was assumed.")
             end
+        end
+        
+        function [vdXOrigin, vdYOrigin, vdWidth, vdHeight] = ...
+                GetTileCoordinatesFromNames(vsTileFilepaths)
+            
+            vdXOrigin = nan(length(vsTileFilepaths),1);
+            vdYOrigin = nan(length(vsTileFilepaths),1);
+            vdWidth = nan(length(vsTileFilepaths),1);
+            vdHeight = nan(length(vsTileFilepaths),1);
+            
+            for iTile = 1:length(vsTileFilepaths)
+                sTilePath = vsTileFilepaths(iTile);
+                [vdXOrigin(iTile), vdYOrigin(iTile), vdWidth(iTile), vdHeight(iTile)] =...
+                    GetTileCoordinatesFromName(sTilePath);
+            end
+            
+            if (any(isnan(vdXOrigin)) || any(isnan(vdYOrigin)))...
+                    || (any(isnan(vdWidth)) || any(isnan(vdHeight)))
+                error("There are nans in the list.")
+            end
+            
         end
         
         function sSlideName = GetSlideNameFromTileFilepath(sTileFilePath)
