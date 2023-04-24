@@ -128,22 +128,66 @@ classdef MyGeneralUtils
             chExtentsion = c1chExtentsion{:};
         end
         
-
-        function dPPV = CaluclatePPV(vdPredictions, vdTruth)
-            dNumTruePositive = 0;
-            dNumFalsePositive = 0;
+        function [dAUC, dAccuracy, dTrueNegativeRate, dTruePositiveRate, dPPV, tExcelFileMetrics, dThreshold]=...
+                CalculateAllTheMetrics(viTruth, vdConfidences, iPositiveLabel)
             
-            for i = 1:length(vdPredictions)
-                if vdPredictions(i) == 1 && vdTruth(i) == 1
-                    dNumTruePositive = dNumTruePositive + 1;
-                elseif vdPredictions(i) == 1 && vdTruth(i) == 0
-                    dNumFalsePositive = dNumFalsePositive + 1;
-                end
-                
-            end
-            dPPV = dNumTruePositive / (dNumTruePositive + dNumFalsePositive);
-            disp("PPV is: " + num2str(round(100*(dPPV)))+ "%")
-        end
+            dAUC = ErrorMetricsCalculator.CalculateAUC(viTruth, vdConfidences, iPositiveLabel);
+            disp("AUC: " + num2str(dAUC,'%.2f'))
+            
+            dThreshold = ErrorMetricsCalculator.CalculateOptimalThreshold(...
+                {"upperleft","MCR","matlab"}, viTruth, vdConfidences, iPositiveLabel);
+            
+            dMisclassificationRate = ErrorMetricsCalculator.CalculateMisclassificationRate(...
+                viTruth, vdConfidences, iPositiveLabel,dThreshold);
+            dAccuracy = 1 - dMisclassificationRate;
+            disp("accuracy is: " + num2str(round(100*(1-dMisclassificationRate)))+ "%")
+            
+            dTrueNegativeRate = ErrorMetricsCalculator.CalculateTrueNegativeRate(...
+                viTruth, vdConfidences, iPositiveLabel,dThreshold);
+            disp("TNR is: " + num2str(round(100*(dTrueNegativeRate)))+ "%")
+            
+            dTruePositiveRate = ErrorMetricsCalculator.CalculateTruePositiveRate(...
+                viTruth, vdConfidences, iPositiveLabel,dThreshold);
+            disp("TPR is: " + num2str(round(100*(dTruePositiveRate))) + "%")            
+           
+            dPPV = ErrorMetricsCalculator.CaluclatePositivePredictiveValue(...
+                viTruth, vdConfidences, iPositiveLabel, dThreshold);
+            disp("PPV is: " + num2str(round(100*(dPPV))) + "%")    
+            
+            tExcelFileMetrics = table(dAUC, dThreshold, dAccuracy, dTrueNegativeRate, dTruePositiveRate);
+        end   
         
+        function [dAUC, dAccuracy, dTrueNegativeRate, dTruePositiveRate, dPPV, tExcelFileMetrics]=...
+                CalculateAllTheMetricsGivenThreshold(viTruth, vdConfidences, iPositiveLabel, dThreshold)
+            
+            dAUC = ErrorMetricsCalculator.CalculateAUC(viTruth, vdConfidences, iPositiveLabel);
+            disp("AUC: " + num2str(dAUC,'%.2f'))
+                        
+            dMisclassificationRate = ErrorMetricsCalculator.CalculateMisclassificationRate(...
+                viTruth, vdConfidences, iPositiveLabel,dThreshold);
+            dAccuracy = 1 - dMisclassificationRate;
+            disp("accuracy is: " + num2str(round(100*(1-dMisclassificationRate)))+ "%")
+            
+            dTrueNegativeRate = ErrorMetricsCalculator.CalculateTrueNegativeRate(...
+                viTruth, vdConfidences, iPositiveLabel,dThreshold);
+            disp("TNR is: " + num2str(round(100*(dTrueNegativeRate)))+ "%")
+            
+            dTruePositiveRate = ErrorMetricsCalculator.CalculateTruePositiveRate(...
+                viTruth, vdConfidences, iPositiveLabel,dThreshold);
+            disp("TPR is: " + num2str(round(100*(dTruePositiveRate))) + "%")            
+           
+            dPPV = ErrorMetricsCalculator.CaluclatePositivePredictiveValue(...
+                viTruth, vdConfidences, iPositiveLabel, dThreshold);
+            disp("PPV is: " + num2str(round(100*(dPPV))) + "%")    
+            
+            tExcelFileMetrics = table(dAUC, dThreshold, dAccuracy, dTrueNegativeRate, dTruePositiveRate);
+        end 
+       
+        function DispLoopProgress(dIdx, dLoopLength)
+            
+            dPercent = round(100*dIdx/dLoopLength);
+            disp(num2str(dPercent, '%2.f') + "%")
+            
+        end
     end
 end
