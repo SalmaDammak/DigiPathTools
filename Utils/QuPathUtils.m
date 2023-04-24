@@ -103,6 +103,9 @@ classdef QuPathUtils
             % vsSlideNames | x_location | y_location | width | height |
             % vdConfidences| prediction | vbTruth | TP | FP | TN | FN
             %
+            % Makes one CSV per slide and can be given tiles from multiple
+            % slides
+            %
             %QuPathUtils.PreparePredictionTablesForPlotting(...
             %   vsFilenamesFromMATLAB,  double(vsiConfidences)>0.5, Experiment.GetResultsDirectory(),...
             %   'vdConfidences', double(vsiConfidences),...
@@ -209,9 +212,7 @@ classdef QuPathUtils
                 c1tPredictiontables{iSlideIdx} = tPredictionTableForSlide;
             end
         end
-        
-        
-        
+                
         function VerifyThatWSIsHaveContours(c1chRequestedWSIs, chContourDir)
             % e.g., paths
             % c1chRequestedWSIs = 'D:\Users\sdammak\Experiments\LUSCCancerCells\SlidesToContour\All The Slides That Should have Contours.mat';
@@ -240,7 +241,57 @@ classdef QuPathUtils
             disp(['These slides were not in the Contoured folder:', newline, c1chRequestedWSIs{:}])
         end
         
-        
+        function vsEquivalentDeconvolvedTilePaths = GetDeconvolvedTileEquivalentPathForSamePatient(...
+                vsOriginalSourceTilePaths, vsDeconvolvedTilePaths)
+            
+            % TO DO: CHECK THAT THE PATIENT IS THE SAME
+            
+            % Get all original tile locations
+            [vdXOrigin, vdYOrigin, vdWidth, vdHeight] = QuPathUtils.GetTileCoordinatesFromNames(vsOriginalSourceTilePaths);
+            
+            % Get provided deconvolved tile locations
+            [vdDecXOrigin, vdDecYOrigin, vdDecWidth, vdDecHeight] = QuPathUtils.GetTileCoordinatesFromNames(vsDeconvolvedTilePaths);
+            
+            vsEquivalentDeconvolvedTilePaths = strings(length(vsOriginalSourceTilePaths), 1);
+            for iOrigTile = 1:length(vsOriginalSourceTilePaths)
+                
+                vbMatchingX = vdXOrigin(iOrigTile) == vdDecXOrigin;
+                vbMatchingY = vdYOrigin(iOrigTile) == vdDecYOrigin;
+                vbMatchingBoth = and(vbMatchingX, vbMatchingY);
+                
+                % error if not found
+                if ~any(vbMatchingBoth)
+                    error('No match found')
+                end
+                
+                sMatchingTile = vsOriginalSourceTilePaths(vbMatchingBoth);
+                vsEquivalentDeconvolvedTilePaths(iOrigTile) = sMatchingTile;                
+                
+                % Make sure height and width are also the same
+                if vdWidth(iOrigTile) ~= vdDecWidth(vbMatchingBoth)
+                    error('Width does not match')
+                end
+                
+                if vdHeight(iOrigTile) ~= vdDecHeight(vbMatchingBoth)
+                    error('Height does not match')
+                end
+                
+            end
+            
+            
+%             % Get list of images
+%             stDeconvolvedTiles = dir(sDeconvolvedTileBaseDir + "\" + QuPathUtils.sImageRegexp);
+%             vsDeconvolvedTilePaths = string({stDeconvolvedTiles.name}');
+%                                    
+            % Get all deconvolved tile locations
+            
+%             % Get tile location on slide
+%             [dXOrigin, dYOrigin, dWidth, dHeight, dResizeFactor] =...
+%                 GetTileCoordinatesFromName(sOriginalSourceTilePath);
+            
+           
+            
+        end
     end
 end
 
