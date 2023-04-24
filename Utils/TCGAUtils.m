@@ -28,7 +28,7 @@ classdef TCGAUtils
         % Regular expressions for search using "token"
         % e.g., regexp(sFilename, sCentreIDRegexpForToken,'tokens','once')
         sCentreIDRegexpForToken = "TCGA-(\w\w)-.*";
-        sPatientIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w).*";
+        sPatientIDRegexpForToken = "(TCGA-\w\w-\w\w\w\w).*";
         sSlideIDRegexpForToken = "(TCGA-\w\w-\w\w\w\w-[\w\d\.\-]*)*";
         sTileIDRegexpForToken = "TCGA-(\w\w-\w\w\w\w-.*]).*";
     end
@@ -65,14 +65,14 @@ classdef TCGAUtils
                 sFilename = vsFileparts(end);
                 vsFilenames(iTileFilepathIdx) = sFilename;
                 vsCentreIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sCentreIDRegexpForToken, 'tokens','once');
-                vsPatientIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sPatientIDRegexpForToken, 'tokens','once');                
-                vsSlideIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sSlideIDRegexpForToken, 'tokens','once');    
+                vsPatientIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sPatientIDRegexpForToken, 'tokens','once');
+                vsSlideIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sSlideIDRegexpForToken, 'tokens','once');
                 if ~NameValueArgs.bSlideNamesNotTilesGiven
-                vsTileIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sTileIDRegexpForToken, 'tokens','once');
+                    vsTileIDs(iTileFilepathIdx) = regexp(sFilename, TCGAUtils.sTileIDRegexpForToken, 'tokens','once');
                 end
             end
             
-        end        
+        end
         function [msAllInfo, vsFileNames, vsTSS, vsPatientIds] = GetTSSInfoForTCGASlidesInDir(chDatasetDirectory)
             % This function allows me to pull out the information on the TCGA-LUSC slides that I want to
             % diversify whenever I want a subsample from the dataset
@@ -348,6 +348,110 @@ classdef TCGAUtils
             end
             
         end
+        
+        function [c1chUniqueIDs, vdConfidenceOfOnePerPatient, viTruthPerPatient ,c1vdConfidenceOfOnePerPatient] ...
+                = AggregateConfidencesPerPatient(c1chTileFilenames, vdConfidenceOfOnePerTile, vdTruthPerTile, NameValueArgs)
+            %[c1chUniqueIDs, vdConfidenceOfOnePerPatient, c1vdConfidenceOfOnePerPatient] ...
+            %    = TCGAUtils.AggregateConfidencesPerPatient(c1chTileFilenames, vdConfidenceOfOnePerTile, 'dThreshold', 0.5)
+            %
+            % DESCRIPTION:
+            %   This function aggregates tile confidences into one
+            %   confidence for the patient ID the tiles came from. It does
+            %   this by first turning the tile confidences into
+            %   classifications, then calculating the fraction of tiles for
+            %   that patient that were classified as positive.
+            %
+            % INPUT ARGUMENTS:
+            %  c1chTileFilenames: column vector of tile filenames or filepaths
+            %  vdConfidenceOfOnePerTile: column vector containing
+            %   the confidence value for each tile
+            %   being classified as th epositive class i.e. class 1
+            %  dThreshold: confidence equal to or larger than this
+            %   confidence threshold lead to the corresponding tile being
+            %   classified positive. The default is 0.50, I recommend using
+            %   the optimal threshold from the error metrics claculator
+            %   (BOLT) or perfcurve (base MATLAB)
+            %
+            % OUTPUTS ARGUMENTS:
+            %  c1chUniqueIDs: column cell array of patient IDs the tiles came from
+            %  vdConfidenceOfOnePerPatient: column vector of the overall
+            %   confidence of 1 for each unique slide ID
+            %  c1vdConfidenceOfOnePerPatient: column cell array of column
+            %   vectors containing the confidences from all the tiles
+            %   associated with the unique patient ID
+            
+            % Primary Author: Salma Dammak
+            % Last modified: Jun 22, 2022
+            
+            % The contents of c1chTileFilenames must be charachter strings
+            % e.g.
+            % 'D:\Users\sdammak\Data\LUSC\Tiles\LUSCCancerCells\227Px_CancerNonCancer\TCGA-21-5787-01Z-00-DX1.FEE037E3-B9B0-4C2E-97EF-D6E4F64E1DF9_(1.00,16798,19295,227,227).png'
+            % or
+            % 'TCGA-21-5787-01Z-00-DX1.FEE037E3-B9B0-4C2E-97EF-D6E4F64E1DF9_(1.00,16798,19295,227,227).png'
+            
+            arguments
+                c1chTileFilenames (:,1) cell {mustBeText}
+                vdConfidenceOfOnePerTile (:,1) double {mustBeReal, mustBeNonmissing, mustBeFinite, mustBeNonNan}
+                vdTruthPerTile (:,1) double {mustBeReal, mustBeNonmissing, mustBeFinite, mustBeNonNan}
+                NameValueArgs.dThreshold (1,1) double {mustBeNonnegative, mustBeReal, mustBeNonmissing, mustBeFinite, mustBeNonNan} = 0.50
+                NameValueArgs.bByVoting (1,1) logical = false
+                NameValueArgs.bByMean (1,1) logical = false
+                NameValueArgs.bByStandardDeviation (1,1) logical = false
+            end
+            
+            if (NameValueArgs.bByVoting + NameValueArgs.bByMean + NameValueArgs.bByStandardDeviation) ~= 1
+                error("Exactly one method of aggregation must be selected. None were or more than one was set to true.")
+            end
+            
+            % Get te patient IDs each tile belongs to
+            [~, c1chIDForEachTiles] = TCGAUtils.GetIDsFromTileFilepaths(c1chTileFilenames);
+            
+            [c1chUniqueIDs, ~, vdUniqueIDsOriginalLocations] = unique(c1chIDForEachTiles);
+            dNumUniqueIDs = length(c1chUniqueIDs);
+            
+            vdSumOfVotes = nan(dNumUniqueIDs, 1);
+            vdTotalNumberOfTiles = nan(dNumUniqueIDs, 1);
+            vdConfidenceOfOnePerPatient = nan(dNumUniqueIDs, 1);
+            viTruthPerPatient = nan(dNumUniqueIDs, 1);
+            c1vdConfidenceOfOnePerPatient = cell(dNumUniqueIDs, 1);
+            
+            for dUniqueIDIdx = 1:dNumUniqueIDs
+                
+                % Get the tile rows corresponding to the current patient ID
+                vbTileRowsForThisPatient = (vdUniqueIDsOriginalLocations == dUniqueIDIdx);
+                
+                % Get the confidences of all the tiles associate with this ID
+                vdConfidencesForCurrentID = vdConfidenceOfOnePerTile(vbTileRowsForThisPatient);
+                c1vdConfidenceOfOnePerPatient{dUniqueIDIdx} = vdConfidencesForCurrentID;
+                
+                if NameValueArgs.bByVoting
+                    % Get the classification for the tiles associated with this ID
+                    vbClassificationsForCurrentID = vdConfidencesForCurrentID >= NameValueArgs.dThreshold;
+                    
+                    % get total number of tiles
+                    vdTotalNumberOfTiles(dUniqueIDIdx) = sum(vbTileRowsForThisPatient);
+                    
+                    % sum labels assigned to tiles
+                    vdSumOfVotes(dUniqueIDIdx) = sum(vbClassificationsForCurrentID);
+                    
+                    % Get the patient vote
+                    vdConfidenceOfOnePerPatient(dUniqueIDIdx) = vdSumOfVotes(dUniqueIDIdx)/vdTotalNumberOfTiles(dUniqueIDIdx);
+                    
+                elseif NameValueArgs.bByMean                
+                    vdConfidenceOfOnePerPatient(dUniqueIDIdx) = mean(vdConfidencesForCurrentID);
+                    
+                elseif NameValueArgs.bByStandardDeviation                    
+                    vdConfidenceOfOnePerPatient(dUniqueIDIdx) = std(vdConfidencesForCurrentID);                   
+                    
+                end
+                % Get the patient truth. Any tile from the patient will do, so we use number 1.
+                viTruthsPerPatient = vdTruthPerTile(vbTileRowsForThisPatient);
+                viTruthPerPatient(dUniqueIDIdx) = viTruthsPerPatient(1);
+            end
+            
+        end
+        
+        
     end
     
 end
