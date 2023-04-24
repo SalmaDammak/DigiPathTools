@@ -479,7 +479,8 @@ classdef TileImagesUtils
             disp("This is %" + num2str((dNumberOftilesRemoved/dNumTiles)*100)+ " of the original number of tiles.")
         end
         
-        function dPercentClear = FindClearSlidePercentInTile(chTilePath)
+        function [dPercentClear, m2bMask] = FindClearSlidePercentInTile(chTilePath)
+            %[dPercentClear, m2bMask] = TileImagesUtils.FindClearSlidePercentInTile(chTilePath)
             
                 % Read image
                 m3iImage = imread(chTilePath);
@@ -492,14 +493,14 @@ classdef TileImagesUtils
                 m3bBinaryImage = imbinarize(m3iBlurredImage, dThresh);
                 
                 % Flatten to allow for viewing
-                m2bFlat = sum(m3bBinaryImage,3);
+                m2bMask = sum(m3bBinaryImage,3);
                 
                 % When a pixel in flat equals three, it means that all RGB layers
                 % indicated that the slide is blank there
-                m2bFlat = m2bFlat == 3;
+                m2bMask = m2bMask == 3;
                 
                 % 1 is all clear slide, 0 all non-clear slide
-                dPercentClear = sum(m2bFlat,'all')/(length(m2bFlat)*width(m2bFlat));
+                dPercentClear = sum(m2bMask,'all')/(length(m2bMask)*width(m2bMask));
                 
         end
         
@@ -696,6 +697,42 @@ classdef TileImagesUtils
             
             save('RealNameToNumberMapping.mat','vsRealNameToNumberMapping')
         end
+        
+        function m2bMask = GetNucleusMaskFromHematoxylinImage(NameValueArgs)
+            arguments
+                NameValueArgs.sUseHematoxylinTilePath
+                NameValueArgs.m2sUseImage
+            end
+            
+            if length(fields(NameValueArgs)) ~= 1
+                error("Must have exactly one name value argument pair, either sHematoxylinTilePath or m2sHemImage")
+                           
+            elseif isfield(NameValueArgs, 'sUseHematoxylinTilePath')
+                % Read hematoxylin image
+                m2sHemImage = imread(sHematoxylinTilePath);
+                
+            elseif isfield(NameValueArgs, 'm2sUseImage')
+                m2sHemImage = NameValueArgs.m2sUseImage;
+            end
+            
+            % Create base mask using otsu's threshold
+            m2bMask = imbinarize(m2sHemImage, graythresh(m2sHemImage));
+            
+            % Blur thresholded mask then binarize it
+            m2bMask = imbinarize(imgaussfilt(double(m2bMask),3), graythresh(m2sHemImage));
+        end
+        
+%         function dNumCells = GetNumCellsInTile(chTilePath, chHem)
+%             % TO DO: make calculate hematoxylin image
+%             
+%             sHematoxylinTileName = string(...
+%                 DeconvolvedTileImagesUtils.FindHematoxylinEquivalentName(chTileFileName, chHematoxylinTileDir));
+%             sHematoxylinTilePath = string(chHematoxylinTileDir) + '\' + sHematoxylinTileName;
+%             
+%             m2bMask = GetNucleusMaskFromHematoxylinImage(sHematoxylinTilePath);
+%             stConnectedComponenets = bwconncomp(m2bMask);
+%             dNumCells = stConnectedComponenets.NumObjects;
+%         end
     end
 end
 
