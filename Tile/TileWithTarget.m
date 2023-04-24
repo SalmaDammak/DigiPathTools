@@ -41,8 +41,74 @@ classdef TileWithTarget < Tile
     % *                        TILE VECTOR METHODS                        *
     % *********************************************************************
    
-    % GETTERS
     methods (Static)
+    function voTiles = MakeTilesWithSameTarget(chTileDir,oTarget, NameValueArgs)
+        %MakeTilesWithSameTarget(chTileDir,oTarget,'chFilterByMaskDir', chMaskDir, 'dPercentMinInMask', 1)
+        arguments
+            chTileDir (1,:) char {mustBeText,...
+                    MyValidationUtils.MustBeExistingDir,...
+                    MyValidationUtils.MustBeNonEmptyDir}
+            oTarget
+            NameValueArgs.chFilterByMaskDir
+            NameValueArgs.dPercentMinInMask (1,:) double...
+                {mustBeInRange(NameValueArgs.dPercentMinInMask,0,1)}
+        end
+        
+        % Get list of tiles in dir
+        stTiles = dir(chTileDir + "\" + QuPathUtils.sImageRegexp);
+        
+        % Pre-allocate cell array
+        c1oTiles = cell(length(stTiles), 1);
+        
+        % Loop through tiles
+        for iTileIdx = 1:length(c1oTiles)
+            
+            %MyGeneralUtils.DispLoopProgress(iTileIdx, length(c1oTiles))
+            
+            % Get full tile path
+            sTileName = string(stTiles(iTileIdx).name);
+            sTilePath = string(chTileDir) + "\" + sTileName;
+            
+            % If chFilterByMask isn't empty
+            if any(contains(fields(NameValueArgs), 'chFilterByMaskDir'))
+            
+                % Get mask path
+                sExtentsion = string(MyGeneralUtils.GetFileExtension(sTileName));
+                sMaskFileName = strrep(sTileName,...
+                    "." + sExtentsion, TileImagesUtils.sMaskCode + "." + sExtentsion);
+                sMaskPath = string(chTileDir) + "\" + sMaskFileName;
+                                
+                % Read mask
+                try
+                m2bMask = imread(sMaskPath);
+                catch oME
+                    if strcmp(oME.identifier, 'MATLAB:imagesci:imread:fileDoesNotExist')
+                        warning("Tile does not have mask and therefore skipped:" + newline + sTileName)
+                        continue
+                    end
+                end
+                dPercentPositive = sum(m2bMask(:))/numel(m2bMask);
+                
+                % If < min in mask, skip tile
+                if dPercentPositive < NameValueArgs.dPercentMinInMask                
+                    continue
+                end
+            end
+            
+            % Make tile object with given object
+            c1oTiles{iTileIdx} = TileWithTarget(sTilePath, oTarget, 'bFromTCGA', true);
+            
+        end
+        
+        % Clear empty cells
+        c1bEmptyCells = cellfun(@isempty, c1oTiles, 'UniformOutput', false);
+        c1oTiles = c1oTiles(~[c1bEmptyCells{:}]);
+        
+        voTiles = CellArrayUtils.CellArrayOfObjects2MatrixOfObjects(c1oTiles);        
+    end
+    
+    % GETTERS
+    
         function voTargets = GetTargets(voTiles)
             arguments
                 voTiles (:,1) TileWithTarget {mustBeVector}
@@ -62,7 +128,8 @@ classdef TileWithTarget < Tile
             voTargets = CellArrayUtils.CellArrayOfObjects2MatrixOfObjects(c1oTargets);
         end
     end
-
+    
+    
     % FOR PYTHON
     methods (Static)
         
